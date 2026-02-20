@@ -102,6 +102,7 @@ bool IR_Optimiser::has_side_effects(const IR_Instruction& inst) const {
     switch (inst.op) {
         case IR_Op::Store:
         case IR_Op::Global_store:
+        case IR_Op::Member_store:
         case IR_Op::Ret:
         case IR_Op::Jump:
         case IR_Op::Branch:

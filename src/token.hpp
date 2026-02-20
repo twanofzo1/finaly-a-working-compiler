@@ -90,6 +90,7 @@ enum class Token_type{
     Function,                   //< the 'fn' keyword
     Var,                        //< the 'var' keyword
     Const,                      //< the 'const' keyword
+    Struct,                     //< the 'struct' keyword
 
     Semicolon,                  //< ;
     Left_brace,                 //< {

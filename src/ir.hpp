@@ -13,9 +13,11 @@
 struct IR_Type {
     Datatype_kind kind;
     u32 bit_width;
+    std::string struct_name; // only used when kind == Struct
 
     IR_Type();
     IR_Type(Datatype_kind kind, u32 bit_width);
+    IR_Type(Datatype_kind kind, u32 bit_width, const std::string& struct_name);
     std::string to_string() const;
 };
 
@@ -64,6 +66,10 @@ enum class IR_Op {
 
     // String
     String_concat,  // %dst = strcat %src1, %src2  — concatenate two strings
+
+    // Structs
+    Member_load,    // %dst = member_load %src1, offset(imm)  — load field from struct
+    Member_store,   // member_store %src1 -> %src2, offset(imm)  — store into struct field
 
     // Globals
     Global_load,    // %dst = global_load <name>   — load a global variable
@@ -132,9 +138,22 @@ struct IR_GlobalVar {
     void print() const;
 };
 
+// ─────────────────────────────────────────────
+// Struct layout (field offsets & total size)
+// ─────────────────────────────────────────────
+
+struct IR_StructLayout {
+    std::string name;
+    std::vector<std::string> field_names;
+    std::vector<IR_Type> field_types;
+    std::vector<u32> field_offsets;  // byte offset of each field
+    u32 total_size;                 // total byte size of struct
+};
+
 struct IR_Program {
     std::vector<IR_Function> functions;
     std::vector<IR_GlobalVar> globals;
+    std::unordered_map<std::string, IR_StructLayout> struct_layouts;
 
     void print() const;
 };
@@ -198,6 +217,7 @@ private:
     void   gen_if(u32 if_index);
     void   gen_for(u32 for_index);
     void   gen_return(u32 ret_index);
+    void   gen_struct_decl(u32 struct_index);
 
     // Expression generation — returns the register holding the result
     IR_Reg gen_expression(const AST_index& node);
@@ -205,4 +225,6 @@ private:
     IR_Reg gen_unary(u32 un_index);
     IR_Reg gen_assignment(u32 assign_index);
     IR_Reg gen_call(u32 call_index);
+    IR_Reg gen_member_access(u32 ma_index);
+    void   gen_member_store(const AST_index& target, IR_Reg val);
 };

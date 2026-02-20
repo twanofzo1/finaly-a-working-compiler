@@ -11,6 +11,10 @@ IR_Type::IR_Type() : kind(Datatype_kind::Void), bit_width(0) {}
 /// @brief constructs an IR type from a kind and bit width
 IR_Type::IR_Type(Datatype_kind kind, u32 bit_width) : kind(kind), bit_width(bit_width) {}
 
+/// @brief constructs an IR type for a struct
+IR_Type::IR_Type(Datatype_kind kind, u32 bit_width, const std::string& struct_name)
+    : kind(kind), bit_width(bit_width), struct_name(struct_name) {}
+
 /// @brief converts the IR type to a human-readable string (e.g. "i32", "f64")
 std::string IR_Type::to_string() const {
     switch (kind) {
@@ -20,6 +24,7 @@ std::string IR_Type::to_string() const {
         case Datatype_kind::Bool:         return "bool";
         case Datatype_kind::Void:         return "void";
         case Datatype_kind::String:       return "str";
+        case Datatype_kind::Struct:       return "struct." + struct_name;
     }
     return "?";
 }
@@ -66,6 +71,8 @@ std::ostream& operator<<(std::ostream& os, const IR_Op& op) {
         case IR_Op::Global_load:  os << "gload";   break;
         case IR_Op::Global_store: os << "gstore";  break;
         case IR_Op::String_concat: os << "strcat";  break;
+        case IR_Op::Member_load:   os << "mload";   break;
+        case IR_Op::Member_store:  os << "mstore";  break;
     }
     return os;
 }
@@ -163,6 +170,16 @@ void IR_Instruction::print() const {
 
         case IR_Op::String_concat:
             std::cout << "    %" << dst << " = strcat str %" << src1 << ", %" << src2 << std::endl;
+            break;
+
+        case IR_Op::Member_load:
+            std::cout << "    %" << dst << " = mload " << type.to_string()
+                      << " %" << src1 << ", offset " << imm << std::endl;
+            break;
+
+        case IR_Op::Member_store:
+            std::cout << "    mstore " << type.to_string() << " %" << src1
+                      << " -> %" << src2 << ", offset " << imm << std::endl;
             break;
     }
 }
@@ -296,6 +313,12 @@ void IR_Generator::declare_var(const std::string& name, IR_Reg alloca_reg) {
 IR_Type IR_Generator::resolve_type(const AST_index& dt_index) {
     if (dt_index.type == AST_index_type::Datatype) {
         const Datatype& dt = ast.datatypes[dt_index.index];
+        if (dt.kind == Datatype_kind::Struct) {
+            // Look up total size from struct layout
+            auto it = m_program.struct_layouts.find(dt.struct_name);
+            u32 sz = (it != m_program.struct_layouts.end()) ? it->second.total_size : 0;
+            return IR_Type(Datatype_kind::Struct, sz, dt.struct_name);
+        }
         return IR_Type(dt.kind, dt.bit_width);
     }
     return IR_Type(); // void
@@ -309,14 +332,21 @@ IR_Type IR_Generator::resolve_type(const AST_index& dt_index) {
 void IR_Generator::gen_program() {
     const Block_statement& root = ast.block_statements[0];
 
-    // First pass: collect global variable declarations
+    // First pass: collect struct declarations (compute layouts)
+    for (const AST_index& stmt : root.statements) {
+        if (stmt.type == AST_index_type::Struct_declaration) {
+            gen_struct_decl(stmt.index);
+        }
+    }
+
+    // Second pass: collect global variable declarations
     for (const AST_index& stmt : root.statements) {
         if (stmt.type == AST_index_type::Variable_declaration) {
             gen_global_var(stmt.index);
         }
     }
 
-    // Second pass: generate functions
+    // Third pass: generate functions
     for (const AST_index& stmt : root.statements) {
         if (stmt.type == AST_index_type::Function_declaration) {
             gen_function(stmt.index);
@@ -481,6 +511,10 @@ void IR_Generator::gen_statement(const AST_index& node) {
             // Nested functions — not supported, skip
             break;
 
+        case AST_index_type::Struct_declaration:
+            // Struct declarations don't emit code, layout already collected
+            break;
+
         // Expression statements
         case AST_index_type::Integer:
         case AST_index_type::Float_literal:
@@ -558,6 +592,60 @@ void IR_Generator::gen_variable_decl(u32 var_index) {
             IR_Instruction store_inst;
             store_inst.op   = IR_Op::Store;
             store_inst.src1 = val;
+            store_inst.src2 = slot;
+            store_inst.type = var_type;
+            emit(store_inst);
+        }
+    } else {
+        // No initialiser — zero-initialise the variable
+        // For structs, we zero-fill each 8-byte chunk; for scalars, store a single zero
+        if (var_type.kind == Datatype_kind::Struct) {
+            u32 total = var_type.bit_width; // total_size in bytes
+            for (u32 off = 0; off < total; off += 8) {
+                IR_Reg zero = new_reg();
+                IR_Instruction ci;
+                ci.op   = IR_Op::Const_int;
+                ci.dst  = zero;
+                ci.imm  = 0;
+                ci.type = IR_Type(Datatype_kind::Signed_int, 64);
+                emit(ci);
+
+                IR_Instruction ms;
+                ms.op   = IR_Op::Member_store;
+                ms.src1 = zero;
+                ms.src2 = slot;
+                ms.imm  = off;
+                ms.type = IR_Type(Datatype_kind::Signed_int, 64);
+                emit(ms);
+            }
+        } else if (var_type.kind == Datatype_kind::Float) {
+            IR_Reg zero = new_reg();
+            IR_Instruction ci;
+            ci.op   = IR_Op::Const_float;
+            ci.dst  = zero;
+            ci.fimm = 0.0;
+            ci.type = var_type;
+            emit(ci);
+
+            IR_Instruction store_inst;
+            store_inst.op   = IR_Op::Store;
+            store_inst.src1 = zero;
+            store_inst.src2 = slot;
+            store_inst.type = var_type;
+            emit(store_inst);
+        } else {
+            // Integer, bool, string pointer — store 0
+            IR_Reg zero = new_reg();
+            IR_Instruction ci;
+            ci.op   = IR_Op::Const_int;
+            ci.dst  = zero;
+            ci.imm  = 0;
+            ci.type = var_type;
+            emit(ci);
+
+            IR_Instruction store_inst;
+            store_inst.op   = IR_Op::Store;
+            store_inst.src1 = zero;
             store_inst.src2 = slot;
             store_inst.type = var_type;
             emit(store_inst);
@@ -839,6 +927,9 @@ IR_Reg IR_Generator::gen_expression(const AST_index& node) {
         case AST_index_type::Call_expression:
             return gen_call(node.index);
 
+        case AST_index_type::Member_access:
+            return gen_member_access(node.index);
+
         default:
             return IR_REG_NONE;
     }
@@ -1022,6 +1113,48 @@ IR_Reg IR_Generator::gen_call(u32 call_index) {
 IR_Reg IR_Generator::gen_assignment(u32 assign_index) {
     const Assignment_expression& assign = ast.assignment_expressions[assign_index];
 
+    // Member access assignment (e.g. p.x = 5)
+    if (assign.target.type == AST_index_type::Member_access) {
+        IR_Reg val = gen_expression(assign.value);
+
+        // For compound assignments on member access, load first, compute, then store
+        if (assign.opp != Token_type::Assign) {
+            IR_Reg current = gen_member_access(assign.target.index);
+
+            IR_Op compound_op;
+            switch (assign.opp) {
+                case Token_type::Plus_assign:          compound_op = IR_Op::Add; break;
+                case Token_type::Minus_assign:         compound_op = IR_Op::Sub; break;
+                case Token_type::Multiply_assign:      compound_op = IR_Op::Mul; break;
+                case Token_type::Divide_assign:        compound_op = IR_Op::Div; break;
+                case Token_type::Modulus_assign:        compound_op = IR_Op::Mod; break;
+                case Token_type::Bitwise_and_assign:   compound_op = IR_Op::And; break;
+                case Token_type::Bitwise_or_assign:    compound_op = IR_Op::Or;  break;
+                case Token_type::Bitwise_xor_assign:   compound_op = IR_Op::Xor; break;
+                case Token_type::Left_shift_assign:    compound_op = IR_Op::Shl; break;
+                case Token_type::Right_shift_assign:   compound_op = IR_Op::Shr; break;
+                default:                               compound_op = IR_Op::Add; break;
+            }
+
+            IR_Reg result = new_reg();
+            IR_Type field_type;
+            auto it = m_reg_types.find(current);
+            field_type = (it != m_reg_types.end()) ? it->second : IR_Type(Datatype_kind::Signed_int, 32);
+
+            IR_Instruction binop;
+            binop.op   = compound_op;
+            binop.dst  = result;
+            binop.src1 = current;
+            binop.src2 = val;
+            binop.type = field_type;
+            emit(binop);
+            val = result;
+        }
+
+        gen_member_store(assign.target, val);
+        return val;
+    }
+
     ASSERT(assign.target.type == AST_index_type::Identifier,
            "assignment target must be an identifier in IR gen");
     const std::string& name = ast.identifiers[assign.target.index];
@@ -1149,4 +1282,150 @@ IR_Reg IR_Generator::gen_assignment(u32 assign_index) {
     }
 
     return val;
+}
+// ─────────────────────────────────────────────
+// Struct declaration — compute layout
+// ─────────────────────────────────────────────
+
+/// @brief computes the memory layout for a struct (field offsets and total size)
+void IR_Generator::gen_struct_decl(u32 struct_index) {
+    const Struct_declaration& decl = ast.struct_declarations[struct_index];
+    const std::string& name = ast.identifiers[decl.name.index];
+
+    IR_StructLayout layout;
+    layout.name = name;
+    u32 offset = 0;
+
+    for (u64 i = 0; i < decl.field_names.size(); ++i) {
+        layout.field_names.push_back(ast.identifiers[decl.field_names[i].index]);
+
+        IR_Type ft = resolve_type(decl.field_types[i]);
+        layout.field_types.push_back(ft);
+        layout.field_offsets.push_back(offset);
+
+        // Compute field size (round up to bytes, minimum 1)
+        u32 field_bytes;
+        if (ft.kind == Datatype_kind::Struct) {
+            field_bytes = ft.bit_width; // bit_width holds total_size for struct types
+        } else {
+            field_bytes = (ft.bit_width + 7) / 8;
+            if (field_bytes == 0) field_bytes = 8; // pointers / void*
+        }
+
+        // Align to natural alignment (min of field_bytes and 8)
+        u32 align = std::min(field_bytes, (u32)8);
+        if (align > 0) {
+            offset = (offset + align - 1) & ~(align - 1);
+            layout.field_offsets.back() = offset;
+        }
+        offset += field_bytes;
+    }
+
+    // Align total size to 8 bytes
+    layout.total_size = (offset + 7) & ~7u;
+
+    m_program.struct_layouts[name] = layout;
+}
+
+// ─────────────────────────────────────────────
+// Member access expression (rvalue)
+// ─────────────────────────────────────────────
+
+/// @brief helper to walk a member access chain and return (base_slot_reg, byte_offset, field_type)
+static void resolve_member_access(
+    const AST& ast,
+    const std::unordered_map<std::string, IR_StructLayout>& layouts,
+    const std::unordered_map<IR_Reg, IR_Type>& reg_types,
+    const std::vector<std::unordered_map<std::string, IR_Reg>>& var_scopes,
+    const std::unordered_map<std::string, IR_Type>& global_types,
+    const AST_index& node,
+    IR_Reg& out_base, u32& out_offset, IR_Type& out_field_type)
+{
+    if (node.type == AST_index_type::Member_access) {
+        const Member_access_expression& ma = ast.member_access_expressions[node.index];
+        const std::string& member = ast.identifiers[ma.member.index];
+
+        // Recursively resolve the object
+        IR_Reg base;
+        u32 base_offset;
+        IR_Type obj_type;
+        resolve_member_access(ast, layouts, reg_types, var_scopes, global_types,
+                              ma.object, base, base_offset, obj_type);
+
+        // obj_type should be a struct
+        ASSERT(obj_type.kind == Datatype_kind::Struct,
+               "member access on non-struct type: " << obj_type.to_string());
+
+        auto it = layouts.find(obj_type.struct_name);
+        ASSERT(it != layouts.end(), "unknown struct: " << obj_type.struct_name);
+
+        const IR_StructLayout& layout = it->second;
+        for (u64 i = 0; i < layout.field_names.size(); ++i) {
+            if (layout.field_names[i] == member) {
+                out_base = base;
+                out_offset = base_offset + layout.field_offsets[i];
+                out_field_type = layout.field_types[i];
+                return;
+            }
+        }
+        ASSERT(false, "struct '" << obj_type.struct_name << "' has no field '" << member << "'");
+    } else if (node.type == AST_index_type::Identifier) {
+        const std::string& name = ast.identifiers[node.index];
+
+        // Look up in local var scopes
+        for (auto it = var_scopes.rbegin(); it != var_scopes.rend(); ++it) {
+            auto found = it->find(name);
+            if (found != it->end()) {
+                out_base = found->second;
+                out_offset = 0;
+                // Get the type from reg_types
+                auto type_it = reg_types.find(found->second);
+                out_field_type = (type_it != reg_types.end()) ? type_it->second
+                                : IR_Type(Datatype_kind::Signed_int, 32);
+                return;
+            }
+        }
+        ASSERT(false, "variable '" << name << "' not found for member access");
+    } else {
+        ASSERT(false, "unexpected node type in member access chain");
+    }
+}
+
+/// @brief generates IR for a member access expression (rvalue — loads the field)
+IR_Reg IR_Generator::gen_member_access(u32 ma_index) {
+    const Member_access_expression& ma = ast.member_access_expressions[ma_index];
+
+    IR_Reg base;
+    u32 offset;
+    IR_Type field_type;
+    AST_index node(AST_index_type::Member_access, ma_index);
+    resolve_member_access(ast, m_program.struct_layouts, m_reg_types, m_var_scopes, m_global_types,
+                          node, base, offset, field_type);
+
+    IR_Reg dst = new_reg();
+    IR_Instruction inst;
+    inst.op   = IR_Op::Member_load;
+    inst.dst  = dst;
+    inst.src1 = base;
+    inst.imm  = offset;
+    inst.type = field_type;
+    emit(inst);
+    return dst;
+}
+
+/// @brief generates IR for storing a value into a member access target (lvalue)
+void IR_Generator::gen_member_store(const AST_index& target, IR_Reg val) {
+    IR_Reg base;
+    u32 offset;
+    IR_Type field_type;
+    resolve_member_access(ast, m_program.struct_layouts, m_reg_types, m_var_scopes, m_global_types,
+                          target, base, offset, field_type);
+
+    IR_Instruction inst;
+    inst.op   = IR_Op::Member_store;
+    inst.src1 = val;
+    inst.src2 = base;
+    inst.imm  = offset;
+    inst.type = field_type;
+    emit(inst);
 }

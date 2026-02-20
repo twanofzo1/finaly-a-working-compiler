@@ -61,6 +61,10 @@ std::string Codegen::mangle(const std::string& name) const {
 u32 Codegen::type_size(const IR_Type& type) const {
     if (type.kind == Datatype_kind::Void) return 0;
     if (type.kind == Datatype_kind::Bool) return 1;
+    if (type.kind == Datatype_kind::Struct) {
+        // bit_width holds total_size for struct IR_Types
+        return type.bit_width > 0 ? type.bit_width : 8;
+    }
     if (type.kind == Datatype_kind::Float) {
         return (type.bit_width <= 32) ? 4 : 8;
     }
@@ -291,7 +295,13 @@ void Codegen::emit_function(const IR_Function& func) {
 
         if (inst.dst != IR_REG_NONE &&
             m_stack_offsets.find(inst.dst) == m_stack_offsets.end()) {
-            alloc_slot(inst.dst, 8);
+            // Allocate struct-sized slots for struct alloca
+            u32 slot_size = 8;
+            if (inst.op == IR_Op::Alloca && inst.type.kind == Datatype_kind::Struct) {
+                slot_size = type_size(inst.type);
+                if (slot_size < 8) slot_size = 8;
+            }
+            alloc_slot(inst.dst, slot_size);
         }
         if (inst.src1 != IR_REG_NONE &&
             m_stack_offsets.find(inst.src1) == m_stack_offsets.end()) {
@@ -884,6 +894,47 @@ void Codegen::emit_instruction(const IR_Instruction& inst) {
         load_reg(inst.src2, "%rsi");
         emit("call strcat");
         // Result pointer is already in dst slot from malloc save
+        break;
+    }
+
+    // ── Struct member load ──
+    case IR_Op::Member_load: {
+        emit_comment("member_load offset " + std::to_string(inst.imm));
+        i32 base_off = slot_of(inst.src1);
+        i32 field_off = base_off + (i32)inst.imm;
+        u32 bytes = type_size(inst.type);
+
+        if (is_float_type(inst.type)) {
+            emit("movsd " + std::to_string(field_off) + "(%rbp), %xmm0");
+            store_xmm("%xmm0", inst.dst);
+        } else {
+            std::string suffix = size_suffix(bytes);
+            std::string reg_name = sized_reg("a", bytes);
+            if (bytes < 8) {
+                emit("xorq %rax, %rax");  // zero-extend
+            }
+            emit("mov" + suffix + " " + std::to_string(field_off) + "(%rbp), " + reg_name);
+            store_reg("%rax", inst.dst);
+        }
+        break;
+    }
+
+    // ── Struct member store ──
+    case IR_Op::Member_store: {
+        emit_comment("member_store offset " + std::to_string(inst.imm));
+        i32 base_off = slot_of(inst.src2);
+        i32 field_off = base_off + (i32)inst.imm;
+        u32 bytes = type_size(inst.type);
+
+        if (is_float_type(inst.type)) {
+            load_xmm(inst.src1, "%xmm0");
+            emit("movsd %xmm0, " + std::to_string(field_off) + "(%rbp)");
+        } else {
+            load_reg(inst.src1, "%rax");
+            std::string suffix = size_suffix(bytes);
+            std::string reg_name = sized_reg("a", bytes);
+            emit("mov" + suffix + " " + reg_name + ", " + std::to_string(field_off) + "(%rbp)");
+        }
         break;
     }
 

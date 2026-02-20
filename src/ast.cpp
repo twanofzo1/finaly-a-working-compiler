@@ -64,6 +64,12 @@ std::ostream& operator<<(std::ostream& os, const AST_index_type& type) {
         case AST_index_type::Call_expression:
             os << "Call_expression";
             break;
+        case AST_index_type::Struct_declaration:
+            os << "Struct_declaration";
+            break;
+        case AST_index_type::Member_access:
+            os << "Member_access";
+            break;
         default:
             os << "Unknown";
             break;
@@ -109,6 +115,10 @@ For_statement::For_statement(AST_index init, AST_index condition, AST_index post
 Datatype::Datatype(Datatype_kind kind, u32 bit_width)
     : kind(kind), bit_width(bit_width) {}
 
+/// @brief constructs a struct datatype node
+Datatype::Datatype(Datatype_kind kind, u32 bit_width, const std::string& struct_name)
+    : kind(kind), bit_width(bit_width), struct_name(struct_name) {}
+
 /// @brief constructs a return statement node, value is Invalid for bare returns
 Return_statement::Return_statement(AST_index value)
     : value(value) {}
@@ -126,6 +136,14 @@ Variable_declaration::Variable_declaration(AST_index name, AST_index datatype, A
 /// @param arguments  list of argument expressions
 Call_expression::Call_expression(AST_index callee, std::vector<AST_index> arguments)
     : callee(callee), arguments(arguments) {}
+
+/// @brief constructs a struct declaration node
+Struct_declaration::Struct_declaration(AST_index name, std::vector<AST_index> field_types, std::vector<AST_index> field_names)
+    : name(name), field_types(field_types), field_names(field_names) {}
+
+/// @brief constructs a member access expression node (e.g. p.x)
+Member_access_expression::Member_access_expression(AST_index object, AST_index member)
+    : object(object), member(member) {}
 
 /// @brief constructs an empty AST
 AST::AST() {}
@@ -305,6 +323,12 @@ void Datatype::print(const AST& ast, u32 indent) const {
         case Datatype_kind::Void:
             std::cout << pad << "void";
             break;
+        case Datatype_kind::String:
+            std::cout << pad << "string";
+            break;
+        case Datatype_kind::Struct:
+            std::cout << pad << struct_name;
+            break;
     }
 }
 
@@ -348,6 +372,29 @@ void Call_expression::print(const AST& ast, u32 indent) const {
         arguments[i].print(ast, 0);
     }
     std::cout << ")";
+}
+
+/// @brief debug prints a struct declaration
+void Struct_declaration::print(const AST& ast, u32 indent) const {
+    std::string pad(indent, ' ');
+    std::cout << pad << "struct ";
+    name.print(ast, 0);
+    std::cout << " {\n";
+    for (u64 i = 0; i < field_types.size(); ++i) {
+        field_types[i].print(ast, indent + 2);
+        std::cout << " ";
+        field_names[i].print(ast, 0);
+        std::cout << "\n";
+    }
+    std::cout << pad << "}";
+}
+
+/// @brief debug prints a member access expression (e.g. p.x)
+void Member_access_expression::print(const AST& ast, u32 indent) const {
+    std::string pad(indent, ' ');
+    object.print(ast, indent);
+    std::cout << ".";
+    member.print(ast, 0);
 }
 
 /// @brief debug prints the entire AST starting from the root block
@@ -411,6 +458,12 @@ void AST_index::print(const AST& ast, u32 indent) const {
             break;
         case AST_index_type::Call_expression:
             ast.call_expressions[index].print(ast, indent);
+            break;
+        case AST_index_type::Struct_declaration:
+            ast.struct_declarations[index].print(ast, indent);
+            break;
+        case AST_index_type::Member_access:
+            ast.member_access_expressions[index].print(ast, indent);
             break;
         case AST_index_type::Invalid:
             std::cout << pad << "<invalid>";

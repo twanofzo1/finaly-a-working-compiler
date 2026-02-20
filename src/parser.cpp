@@ -137,11 +137,13 @@ bool Parser::is_unary_prefix(Token_type type){
     }
 }
 
-/// @brief checks if a token is a data type keyword (i32, f64, bool, void, string, etc.)
+/// @brief checks if a token is a data type keyword (i32, f64, bool, void, string, struct names, etc.)
 bool Parser::is_data_type(Token token){
     if (token.type != Token_type::Identifier) return false;
     std::string_view v = token.view;
     if (v == "bool" || v == "void" || v == "string") return true;
+    // Check if it's a declared struct name
+    if (m_struct_names.count(std::string(v))) return true;
     if (v.size() >= 2) {
         char prefix = v[0];
         if (prefix == 'u' || prefix == 'i' || prefix == 'f') {
@@ -222,11 +224,24 @@ AST_index Parser::parse_primary(){
 
     // Identifier (variable name or function call)
     if (m_current.type == Token_type::Identifier){
+        AST_index result;
         // Look ahead to see if this is a function call
         if (peek(1).type == Token_type::Left_parenthesis && !is_data_type(m_current)) {
-            return parse_call_expression();
+            result = parse_call_expression();
+        } else {
+            result = parse_identifier();
         }
-        return parse_identifier();
+
+        // Member access (dot operator) — binds tighter than everything else
+        while (m_current.type == Token_type::Dot) {
+            advance(); // skip '.'
+            ASSERT(m_current.type == Token_type::Identifier, "expected member name after '.' but got: " << m_current.type);
+            AST_index member = parse_identifier();
+            m_ast.member_access_expressions.push_back(Member_access_expression(result, member));
+            result = AST_index(AST_index_type::Member_access, m_ast.member_access_expressions.size() - 1);
+        }
+
+        return result;
     }
 
     ERROR("unknown primary expression type got: " << m_current.type);
@@ -617,6 +632,14 @@ AST_index Parser::parse_datatype(){
     } else if (v == "string") {
         kind = Datatype_kind::String;
         bit_width = 64;
+    } else if (m_struct_names.count(std::string(v))) {
+        kind = Datatype_kind::Struct;
+        bit_width = 0; // will be resolved during semantic analysis / IR
+        std::string sname(v);
+        m_ast.datatypes.push_back(Datatype(kind, bit_width, sname));
+        AST_index index(AST_index_type::Datatype, m_ast.datatypes.size() - 1);
+        advance();
+        return index;
     } else {
         char prefix = v[0];
         std::string digits(v.substr(1));
@@ -836,6 +859,10 @@ AST_index Parser::parse_statement(){
         case Token_type::Const:{
             return parse_variable_declaration(true);
         }
+
+        case Token_type::Struct:{
+            return parse_struct_declaration();
+        }
         
         default:{
             WARNING("unknown statement type got: " << m_current.type);
@@ -846,3 +873,63 @@ AST_index Parser::parse_statement(){
     return AST_index();
 }
 
+
+/// @brief parses a struct declaration: struct Name { type field; type field; ... }
+/// @return AST index of the struct declaration
+AST_index Parser::parse_struct_declaration(){
+    LOG("parse_struct_declaration");
+    ASSERT(
+        m_current.type == Token_type::Struct,
+        "expected struct keyword but got " << m_current.type
+    );
+    advance();
+
+    // Parse struct name
+    if (m_current.type != Token_type::Identifier) {
+        syntax_error("expected struct name", m_current);
+        return AST_index();
+    }
+
+    // Register the struct name so it can be used as a type
+    std::string sname(m_current.view);
+    m_struct_names.insert(sname);
+
+    AST_index name = parse_identifier();
+
+    // Expect '{'
+    if (m_current.type != Token_type::Left_brace) {
+        syntax_error("expected '{' after struct name", m_current);
+        return AST_index();
+    }
+    advance();
+
+    // Parse fields: type name; type name; ...
+    std::vector<AST_index> field_types;
+    std::vector<AST_index> field_names;
+
+    while (m_current.type != Token_type::Right_brace) {
+        if (!is_data_type(m_current)) {
+            syntax_error("expected field type in struct declaration", m_current);
+            return AST_index();
+        }
+        AST_index field_type = parse_datatype();
+        field_types.push_back(field_type);
+
+        if (m_current.type != Token_type::Identifier) {
+            syntax_error("expected field name in struct declaration", m_current);
+            return AST_index();
+        }
+        AST_index field_name = parse_identifier();
+        field_names.push_back(field_name);
+
+        if (m_current.type == Token_type::Semicolon) {
+            advance();
+        }
+    }
+
+    // Consume '}'
+    advance();
+
+    m_ast.struct_declarations.push_back(Struct_declaration(name, field_types, field_names));
+    return AST_index(AST_index_type::Struct_declaration, m_ast.struct_declarations.size() - 1);
+}

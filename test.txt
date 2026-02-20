@@ -1,11 +1,20 @@
 
+struct Point {
+    i32 x;
+    i32 y;
+}
+
 fn main() : i32 {
-    const x : i32 = 10;
-    var y : string = "test"
-    for 10{
-        y = y + "test"
-        print(y)
-    }
-    print(y)
+    var a : i32;
+    var b : f64;
+    var c : bool;
+    var p : Point;
+
+    print(a)
+    print(c)
+    print(b)
+    print(p.x)
+    print(p.y)
+
     return 0;
 }

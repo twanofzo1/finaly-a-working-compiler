@@ -27,6 +27,7 @@ std::unordered_map<std::string, Token_type> keywords{
     {"false",  Token_type::False},
     {"var",    Token_type::Var},
     {"const",  Token_type::Const},
+    {"struct", Token_type::Struct},
 };
 
 /// @brief constructs a new lexer with the given input string

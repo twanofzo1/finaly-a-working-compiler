@@ -12,6 +12,13 @@ enum class Symbol_type {
     Function,
 };
 
+/// @brief information about a declared struct type (field names and types)
+struct StructInfo {
+    std::string name;
+    std::vector<std::string> field_names;
+    std::vector<AST_index> field_types;
+};
+
 
 
 /// @brief  a symbol in the symbol table, representing a variable or function with its type and other attributes
@@ -48,7 +55,8 @@ private:
     const std::string& m_source;     //< the original source code, used for error messages                                                                 
     bool m_has_errors;               //< tracks whether any semantic errors were encountered                                                                 
     AST_index m_current_return_type; //< tracks the return type of the function currently being analyse 
-    bool m_inside_function;          //< tracks whether we're currently inside a function (for return statement checks)                                                                 
+    bool m_inside_function;          //< tracks whether we're currently inside a function (for return statement checks)
+    std::unordered_map<std::string, StructInfo> m_structs; //< registry of declared struct types                                                                 
 
 public:
     Semantic_analyser(AST& ast, const std::string& source);
@@ -84,6 +92,8 @@ private:
     AST_index analyse_unary(u32 un_index);
     AST_index analyse_assignment(u32 assign_index);
     AST_index analyse_call(u32 call_index);
+    void analyse_struct_decl(u32 struct_index);
+    AST_index analyse_member_access(u32 ma_index);
 };
 
 

@@ -14,6 +14,7 @@ Description:
 #include "modern_types.h"
 #include "lexer.hpp"
 #include "ast.hpp"
+#include <set>
 
 
 /// @brief the parser class, used for converting a vector of tokens into an AST
@@ -28,6 +29,7 @@ private:
     u64 m_token_index;           //< the current index into the m_tokens vector, used for keeping track of which token is being parsed
     bool m_has_error = false;    //< flags whether the parser has encountered an error, used for error handling in the parser
     u32 m_synth_counter = 0;     //< counter for generating unique synthetic variable names
+    std::set<std::string> m_struct_names; //< set of declared struct names, used to recognise struct types in is_data_type
 
 public:
     Parser(std::vector<Token> tokens, std::string& input);
@@ -65,6 +67,7 @@ private:
     AST_index parse_function_declaration();
     AST_index parse_return_statement();
     AST_index parse_variable_declaration(bool is_const);
+    AST_index parse_struct_declaration();
 
     AST_index synth_identifier(const std::string& name);
     AST_index synth_integer(i64 value);

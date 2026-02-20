@@ -209,6 +209,12 @@ void Semantic_analyser::pass1_collect_functions() {
 
     for (const AST_index& stmt : root.statements) {
 
+        // Collect struct declarations first so they can be used as types
+        if (stmt.type == AST_index_type::Struct_declaration) {
+            analyse_struct_decl(stmt.index);
+            continue;
+        }
+
         if (stmt.type == AST_index_type::Function_declaration) {
             /*
                 get the function declaration node from ast
@@ -324,6 +330,13 @@ AST_index Semantic_analyser::analyse_node(const AST_index& node) {
 
         case AST_index_type::Datatype:
             return node; // datatypes resolve to themselves
+
+        case AST_index_type::Struct_declaration:
+            // Already handled in pass1, skip
+            return AST_index();
+
+        case AST_index_type::Member_access:
+            return analyse_expression(node);
 
         case AST_index_type::Invalid:
         default:
@@ -561,6 +574,9 @@ AST_index Semantic_analyser::analyse_expression(const AST_index& node) {
         case AST_index_type::Call_expression:
             return analyse_call(node.index);
 
+        case AST_index_type::Member_access:
+            return analyse_member_access(node.index);
+
         default:
             return AST_index();
     }
@@ -631,7 +647,24 @@ AST_index Semantic_analyser::analyse_unary(u32 un_index) {
 AST_index Semantic_analyser::analyse_assignment(u32 assign_index) {
     const Assignment_expression& assign = ast.assignment_expressions[assign_index];
 
-    // The target must be an lvalue (identifier)
+    // The target must be an lvalue (identifier or member access)
+    if (assign.target.type == AST_index_type::Member_access) {
+        // Member access assignment (e.g. p.x = 5)
+        AST_index member_type = analyse_member_access(assign.target.index);
+        AST_index val_type = analyse_expression(assign.value);
+
+        if (member_type.type == AST_index_type::Datatype &&
+            val_type.type == AST_index_type::Datatype) {
+            const Datatype& target_dt = ast.datatypes[member_type.index];
+            const Datatype& value_dt  = ast.datatypes[val_type.index];
+            if (target_dt.kind != value_dt.kind) {
+                Token tok = get_token(assign.target);
+                semantic_error("type mismatch in member assignment", tok);
+            }
+        }
+        return member_type;
+    }
+
     if (assign.target.type != AST_index_type::Identifier) {
         Token tok = get_token(assign.target);
         semantic_error("assignment target is not an lvalue", tok);
@@ -719,4 +752,68 @@ AST_index Semantic_analyser::analyse_call(u32 call_index) {
     }
 
     return sym->return_type;
+}
+
+
+/// @brief analyses a struct declaration: registers the struct type with its fields
+void Semantic_analyser::analyse_struct_decl(u32 struct_index) {
+    const Struct_declaration& decl = ast.struct_declarations[struct_index];
+    const std::string& name = ast.identifiers[decl.name.index];
+
+    if (m_structs.count(name)) {
+        Token tok = get_token(decl.name);
+        semantic_error("redeclaration of struct '" + name + "'", tok);
+        return;
+    }
+
+    StructInfo info;
+    info.name = name;
+    for (u64 i = 0; i < decl.field_names.size(); ++i) {
+        info.field_names.push_back(ast.identifiers[decl.field_names[i].index]);
+        info.field_types.push_back(decl.field_types[i]);
+    }
+    m_structs[name] = info;
+}
+
+
+/// @brief analyses a member access expression (e.g. p.x) and returns the member's type
+AST_index Semantic_analyser::analyse_member_access(u32 ma_index) {
+    const Member_access_expression& ma = ast.member_access_expressions[ma_index];
+
+    // Analyse the object to get its type
+    AST_index obj_type = analyse_expression(ma.object);
+
+    if (obj_type.type != AST_index_type::Datatype) {
+        Token tok = get_token(ma.object);
+        semantic_error("cannot access member on expression with unknown type", tok);
+        return AST_index();
+    }
+
+    const Datatype& dt = ast.datatypes[obj_type.index];
+    if (dt.kind != Datatype_kind::Struct) {
+        Token tok = get_token(ma.object);
+        semantic_error("member access on non-struct type", tok);
+        return AST_index();
+    }
+
+    // Look up the struct info
+    auto it = m_structs.find(dt.struct_name);
+    if (it == m_structs.end()) {
+        Token tok = get_token(ma.object);
+        semantic_error("unknown struct type '" + dt.struct_name + "'", tok);
+        return AST_index();
+    }
+
+    const std::string& member_name = ast.identifiers[ma.member.index];
+    const StructInfo& info = it->second;
+
+    for (u64 i = 0; i < info.field_names.size(); ++i) {
+        if (info.field_names[i] == member_name) {
+            return info.field_types[i];
+        }
+    }
+
+    Token tok = get_token(ma.member);
+    semantic_error("struct '" + dt.struct_name + "' has no member '" + member_name + "'", tok);
+    return AST_index();
 }

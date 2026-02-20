@@ -29,6 +29,7 @@ enum class Datatype_kind
     Bool,          //< bool
     Void,          //< void
     String,        //< string (pointer to null-terminated data)
+    Struct,        //< a user-defined struct type
 };
 
 /// @brief the type of an AST index, used for indexing into the various vectors in the AST
@@ -50,6 +51,8 @@ enum class AST_index_type
     Return_statement,          //< a return statement (e.g. return x + y)
     Variable_declaration,      //< a variable declaration (e.g. var x: i32 = 5)
     Call_expression,           //< a call expression (e.g. add(1, 2))
+    Struct_declaration,        //< a struct declaration (e.g. struct Point { i32 x; i32 y })
+    Member_access,             //< a member access expression (e.g. p.x)
 };
 
 
@@ -172,8 +175,10 @@ struct Datatype
 {
     Datatype_kind kind;
     u32 bit_width; // e.g. 8, 16, 32, 64 — allows arbitrary widths like Zig
+    std::string struct_name; // name of the struct type (only used when kind == Struct)
 
     Datatype(Datatype_kind kind, u32 bit_width);
+    Datatype(Datatype_kind kind, u32 bit_width, const std::string& struct_name);
 
     #ifndef NDEBUG
     void print(const AST& ast, u32 indent = 0) const;
@@ -220,6 +225,33 @@ struct Call_expression
     #endif
 };
 
+/// @brief a struct declaration node in the AST
+struct Struct_declaration
+{
+    AST_index name;                        //< struct name (identifier)
+    std::vector<AST_index> field_types;    //< datatype of each field
+    std::vector<AST_index> field_names;    //< identifier for each field
+
+    Struct_declaration(AST_index name, std::vector<AST_index> field_types, std::vector<AST_index> field_names);
+
+    #ifndef NDEBUG
+    void print(const AST& ast, u32 indent = 0) const;
+    #endif
+};
+
+/// @brief a member access expression (e.g. p.x)
+struct Member_access_expression
+{
+    AST_index object;   //< the expression being accessed (e.g. p)
+    AST_index member;   //< the member name identifier (e.g. x)
+
+    Member_access_expression(AST_index object, AST_index member);
+
+    #ifndef NDEBUG
+    void print(const AST& ast, u32 indent = 0) const;
+    #endif
+};
+
 /// @brief the abstract syntax tree (AST) for the program
 /// the AST contains vectors for each type of node in the AST, and the nodes reference each other using AST_index structs
 /// this design allows for a simple and efficient representation of the AST, as well as easy traversal and manipulation of the AST with minimal memory overhead
@@ -244,6 +276,8 @@ struct AST
     std::vector<Return_statement> return_statements;
     std::vector<Variable_declaration> variable_declarations;
     std::vector<Call_expression> call_expressions;
+    std::vector<Struct_declaration> struct_declarations;
+    std::vector<Member_access_expression> member_access_expressions;
 
     AST();
 
