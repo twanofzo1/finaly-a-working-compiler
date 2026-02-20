@@ -1,0 +1,21 @@
+cmake_minimum_required(VERSION 3.10)
+project(MyProject)
+
+# Set source and output directories
+set(SRC_DIR "${CMAKE_SOURCE_DIR}/src")
+set(BIN_DIR "${CMAKE_SOURCE_DIR}/bin")
+
+# Find all .c and .cpp files in src
+file(GLOB_RECURSE SRC_FILES
+    "${SRC_DIR}/*.c"
+    "${SRC_DIR}/*.cpp"
+)
+
+# Create bin directory if it doesn't exist
+file(MAKE_DIRECTORY ${BIN_DIR})
+
+# Set output directory for executables
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${BIN_DIR})
+
+# Add executable from all source files
+add_executable(MyExecutable ${SRC_FILES})

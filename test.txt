@@ -1,0 +1,11 @@
+
+fn main() : i32 {
+    const x : i32 = 10;
+    var y : string = "test"
+    for 10{
+        y = y + "test"
+        print(y)
+    }
+    print(y)
+    return 0;
+}

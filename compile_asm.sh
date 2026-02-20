@@ -1,0 +1,1 @@
+gcc -o ../output ../output.s -no-pie
