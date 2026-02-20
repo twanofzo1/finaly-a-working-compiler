@@ -1,4 +1,4 @@
-./bin/MyExecutable test.txt
+./bin/MyExecutable $1
 if [ $? -ne 0 ]; then
     exit 1
 fi

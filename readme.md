@@ -62,5 +62,45 @@ fn main() {
 }
 ```
 
+# building
+
+to build the compiler, you need to have a C++ compiler that supports C++17 or later. You can use any C++ compiler
+
+## release build
+```bash
+./build.sh release 
+```
+```bash
+mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
+make
+```
+
+## debug build
+```bash
+./build.sh debug
+```
+or
+```bash
+mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Debug
+make
+```
+
+## running the compiler
+to run the compiler, you can use the following command:
+```bash
+./bin/compiler <source_file>
+```
+This will compile the source file and output an assembly file with the same name but with a .s extension. You can then assemble and link the assembly file using gcc:
+```bash
+gcc <assembly_file.s> -o <output_executable>
+```
+or you can use the provided run script to compile and run the source file in one step:
+```bash
+./run.sh <source_file>
+```
+
+
 # compiler structure
 to see the inner workings of the compiler, [here](./architecture.md) is a document that describes the architecture of the compiler and how the different components interact with each other.
