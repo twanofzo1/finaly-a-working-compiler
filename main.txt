@@ -3,5 +3,5 @@
 
 fn main() : i32 {
 
-    return 0
+    /*this is a multi line comment*/return 0 // this is a comment
 }

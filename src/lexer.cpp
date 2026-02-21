@@ -149,6 +149,22 @@ void Lexer::lex(){
                 }
                 else if (m_current == '/'){
                     if (peek() == '='){ push_token(Token_type::Divide_assign,m_pos,m_pos+2); advance(); }
+                    if (peek() == '/'){ // single line comment
+                        while (m_current != '\n' && m_current != '\0') advance();
+                        continue;
+                    }
+                    if (peek() == '*'){ // multi line comment
+                        advance(2); // skip '/*'
+                        while (!(m_current == '*' && peek() == '/')) {
+                            if (m_current == '\0') {
+                                lexer_error("unterminated multi-line comment");
+                                return;
+                            }
+                            advance();
+                        }
+                        advance(); // skip '*/' ('*' already skipped with prev advance)
+                        continue;
+                    }
                     else { push_token(Token_type::Divide,m_pos,m_pos+1); }
                 }
                 else if (m_current == '%'){
