@@ -1,0 +1,12 @@
+pub struct Vec2 {
+    f32 x;
+    f32 y;
+};
+
+pub fn add_vec2(Vec2 a, Vec2 b) {
+    var added : Vec2
+    added.x = a.x + b.x
+    added.y = a.y + b.y
+    return added;
+}
+

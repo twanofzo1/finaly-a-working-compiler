@@ -53,6 +53,7 @@ enum class AST_index_type
     Call_expression,           //< a call expression (e.g. add(1, 2))
     Struct_declaration,        //< a struct declaration (e.g. struct Point { i32 x; i32 y })
     Member_access,             //< a member access expression (e.g. p.x)
+    Import_declaration,        //< an import declaration (e.g. @import("file.txt"))
 };
 
 
@@ -161,9 +162,10 @@ struct Function_declaration
     std::vector<AST_index> names;
     AST_index block;
     AST_index return_type;
+    bool is_public;
 
-    Function_declaration(AST_index identifier,std::vector<AST_index> datatypes,std::vector<AST_index> names,AST_index block,AST_index return_type) 
-        : identifier(identifier), datatypes(datatypes), names(names), block(block), return_type(return_type){}
+    Function_declaration(AST_index identifier,std::vector<AST_index> datatypes,std::vector<AST_index> names,AST_index block,AST_index return_type, bool is_public = false) 
+        : identifier(identifier), datatypes(datatypes), names(names), block(block), return_type(return_type), is_public(is_public){}
 
     #ifndef NDEBUG
     void print(const AST& ast, u32 indent = 0) const;
@@ -204,8 +206,9 @@ struct Variable_declaration
     AST_index datatype;   //< explicit type (Invalid if inferred via :=)
     AST_index value;      //< initialiser expression
     bool is_const;        //< const vs var
+    bool is_public;       //< pub visibility
 
-    Variable_declaration(AST_index name, AST_index datatype, AST_index value, bool is_const);
+    Variable_declaration(AST_index name, AST_index datatype, AST_index value, bool is_const, bool is_public = false);
 
     #ifndef NDEBUG
     void print(const AST& ast, u32 indent = 0) const;
@@ -231,8 +234,9 @@ struct Struct_declaration
     AST_index name;                        //< struct name (identifier)
     std::vector<AST_index> field_types;    //< datatype of each field
     std::vector<AST_index> field_names;    //< identifier for each field
+    bool is_public;                        //< pub visibility
 
-    Struct_declaration(AST_index name, std::vector<AST_index> field_types, std::vector<AST_index> field_names);
+    Struct_declaration(AST_index name, std::vector<AST_index> field_types, std::vector<AST_index> field_names, bool is_public = false);
 
     #ifndef NDEBUG
     void print(const AST& ast, u32 indent = 0) const;
@@ -246,6 +250,19 @@ struct Member_access_expression
     AST_index member;   //< the member name identifier (e.g. x)
 
     Member_access_expression(AST_index object, AST_index member);
+
+    #ifndef NDEBUG
+    void print(const AST& ast, u32 indent = 0) const;
+    #endif
+};
+
+/// @brief an import declaration node in the AST (e.g. @import("math.txt"))
+struct Import_declaration
+{
+    std::string file_path;   //< the path of the file to import
+    Token token;             //< source token for error reporting
+
+    Import_declaration(const std::string& file_path, Token token);
 
     #ifndef NDEBUG
     void print(const AST& ast, u32 indent = 0) const;
@@ -278,6 +295,7 @@ struct AST
     std::vector<Call_expression> call_expressions;
     std::vector<Struct_declaration> struct_declarations;
     std::vector<Member_access_expression> member_access_expressions;
+    std::vector<Import_declaration> import_declarations;
 
     AST();
 

@@ -28,6 +28,7 @@ std::unordered_map<std::string, Token_type> keywords{
     {"var",    Token_type::Var},
     {"const",  Token_type::Const},
     {"struct", Token_type::Struct},
+    {"pub",    Token_type::Pub},
 };
 
 /// @brief constructs a new lexer with the given input string
@@ -43,6 +44,23 @@ void Lexer::lex(){
         if (m_current == ' ') {advance(); continue;}
         else if (m_current == '\n') {advance(); continue;}
         else if (m_current == '\0') {push_token(Token_type::End_of_file, m_pos, m_pos); return;}
+        
+        
+        // Handle @import builtin
+        else if (m_current == '@') {
+            u32 startpos = m_pos;
+            // Check if it's @import
+            if (m_input.compare(m_pos, 7, "@import") == 0) {
+                push_token(Token_type::Import, startpos, startpos + 7);
+                advance(6); // skip 'import' (6 chars, push_token already sets state)
+                advance(); // move past last char
+                continue;
+            } else {
+                lexer_error("unexpected '@' — did you mean @import?");
+                advance();
+                continue;
+            }
+        }
         switch (m_state)
         {
             // Start state: determine the type of the next token based on the first character

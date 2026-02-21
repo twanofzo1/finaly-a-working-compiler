@@ -91,6 +91,8 @@ enum class Token_type{
     Var,                        //< the 'var' keyword
     Const,                      //< the 'const' keyword
     Struct,                     //< the 'struct' keyword
+    Pub,                        //< the 'pub' keyword
+    Import,                     //< the '@import' builtin
 
     Semicolon,                  //< ;
     Left_brace,                 //< {

@@ -70,6 +70,9 @@ std::ostream& operator<<(std::ostream& os, const AST_index_type& type) {
         case AST_index_type::Member_access:
             os << "Member_access";
             break;
+        case AST_index_type::Import_declaration:
+            os << "Import_declaration";
+            break;
         default:
             os << "Unknown";
             break;
@@ -128,8 +131,8 @@ Return_statement::Return_statement(AST_index value)
 /// @param datatype  explicit type (Invalid if inferred)
 /// @param value  initialiser expression
 /// @param is_const  true if declared with 'const'
-Variable_declaration::Variable_declaration(AST_index name, AST_index datatype, AST_index value, bool is_const)
-    : name(name), datatype(datatype), value(value), is_const(is_const) {}
+Variable_declaration::Variable_declaration(AST_index name, AST_index datatype, AST_index value, bool is_const, bool is_public)
+    : name(name), datatype(datatype), value(value), is_const(is_const), is_public(is_public) {}
 
 /// @brief constructs a function call expression node
 /// @param callee  identifier of the function being called
@@ -138,12 +141,16 @@ Call_expression::Call_expression(AST_index callee, std::vector<AST_index> argume
     : callee(callee), arguments(arguments) {}
 
 /// @brief constructs a struct declaration node
-Struct_declaration::Struct_declaration(AST_index name, std::vector<AST_index> field_types, std::vector<AST_index> field_names)
-    : name(name), field_types(field_types), field_names(field_names) {}
+Struct_declaration::Struct_declaration(AST_index name, std::vector<AST_index> field_types, std::vector<AST_index> field_names, bool is_public)
+    : name(name), field_types(field_types), field_names(field_names), is_public(is_public) {}
 
 /// @brief constructs a member access expression node (e.g. p.x)
 Member_access_expression::Member_access_expression(AST_index object, AST_index member)
     : object(object), member(member) {}
+
+/// @brief constructs an import declaration node
+Import_declaration::Import_declaration(const std::string& file_path, Token token)
+    : file_path(file_path), token(token) {}
 
 /// @brief constructs an empty AST
 AST::AST() {}
@@ -397,6 +404,12 @@ void Member_access_expression::print(const AST& ast, u32 indent) const {
     member.print(ast, 0);
 }
 
+/// @brief debug prints an import declaration
+void Import_declaration::print(const AST& ast, u32 indent) const {
+    std::string pad(indent, ' ');
+    std::cout << pad << "@import(\"" << file_path << "\")";
+}
+
 /// @brief debug prints the entire AST starting from the root block
 void AST::print() const {
     std::cout << "AST:\n";
@@ -464,6 +477,9 @@ void AST_index::print(const AST& ast, u32 indent) const {
             break;
         case AST_index_type::Member_access:
             ast.member_access_expressions[index].print(ast, indent);
+            break;
+        case AST_index_type::Import_declaration:
+            ast.import_declarations[index].print(ast, indent);
             break;
         case AST_index_type::Invalid:
             std::cout << pad << "<invalid>";

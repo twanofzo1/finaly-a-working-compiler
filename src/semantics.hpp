@@ -1,5 +1,6 @@
 #pragma once
 #include <unordered_map>
+#include <unordered_set>
 #include <string>
 #include <vector>
 #include <iostream>
@@ -23,12 +24,13 @@ struct StructInfo {
 
 /// @brief  a symbol in the symbol table, representing a variable or function with its type and other attributes
 struct Symbol {
-    Symbol() : type(Symbol_type::Variable), datatype(AST_index()), is_const(false), used(false), param_types(), return_type(), param_count(0) {}
+    Symbol() : type(Symbol_type::Variable), datatype(AST_index()), is_const(false), used(false), is_imported_private(false), param_types(), return_type(), param_count(0) {}
 
     Symbol_type type;
     AST_index datatype;       // resolved type (Datatype node) for variables
     bool is_const;
     bool used;                // whether this symbol has been referenced
+    bool is_imported_private;  // true for non-pub symbols imported from another file (accessible only from imported code)
     Token decl_token;         // source token of the declaration (for warnings)
 
     // Function-specific
@@ -56,10 +58,14 @@ private:
     bool m_has_errors;               //< tracks whether any semantic errors were encountered                                                                 
     AST_index m_current_return_type; //< tracks the return type of the function currently being analyse 
     bool m_inside_function;          //< tracks whether we're currently inside a function (for return statement checks)
-    std::unordered_map<std::string, StructInfo> m_structs; //< registry of declared struct types                                                                 
+    std::unordered_map<std::string, StructInfo> m_structs; //< registry of declared struct types
+    std::string m_file_dir;          //< directory of the source file being compiled (for resolving relative imports)
+    std::unordered_set<std::string> m_imported_files; //< set of already-imported file paths (to prevent circular imports)
+    std::unordered_set<std::string> m_imported_function_names; //< names of functions that came from imports (pub or private)
+    bool m_analysing_imported_code = false; //< true when inside an imported function body (allows access to imported-private symbols)                                                                 
 
 public:
-    Semantic_analyser(AST& ast, const std::string& source);
+    Semantic_analyser(AST& ast, const std::string& source, const std::string& file_dir = "");
     void analyse();
     bool has_errors() const;
 
@@ -94,6 +100,7 @@ private:
     AST_index analyse_call(u32 call_index);
     void analyse_struct_decl(u32 struct_index);
     AST_index analyse_member_access(u32 ma_index);
+    void process_import(u32 import_index);
 };
 
 

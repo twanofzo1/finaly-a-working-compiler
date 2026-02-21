@@ -64,10 +64,12 @@ private:
     AST_index parse_for_statement();
     AST_index parse_expression();
     AST_index parse_statement();
-    AST_index parse_function_declaration();
+    AST_index parse_function_declaration(bool is_public = false);
     AST_index parse_return_statement();
-    AST_index parse_variable_declaration(bool is_const);
-    AST_index parse_struct_declaration();
+    AST_index parse_variable_declaration(bool is_const, bool is_public = false);
+    AST_index parse_struct_declaration(bool is_public = false);
+    AST_index parse_import_declaration();
+    AST_index parse_pub_declaration();
 
     AST_index synth_identifier(const std::string& name);
     AST_index synth_integer(i64 value);

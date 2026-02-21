@@ -887,6 +887,26 @@ IR_Reg IR_Generator::gen_expression(const AST_index& node) {
             m_current_source_token = ast.identifier_tokens[node.index];
             const std::string& name = ast.identifiers[node.index];
 
+            // Check local variables first (allows shadowing of globals)
+            bool found_local = false;
+            for (auto it = m_var_scopes.rbegin(); it != m_var_scopes.rend(); ++it) {
+                auto found = it->find(name);
+                if (found != it->end()) {
+                    found_local = true;
+                    IR_Reg slot = found->second;
+                    IR_Reg dst = new_reg();
+                    IR_Instruction inst;
+                    inst.op   = IR_Op::Load;
+                    inst.dst  = dst;
+                    inst.src1 = slot;
+                    auto type_it = m_reg_types.find(slot);
+                    inst.type = (type_it != m_reg_types.end()) ? type_it->second
+                                : IR_Type(Datatype_kind::Signed_int, 32);
+                    emit(inst);
+                    return dst;
+                }
+            }
+
             // Check if this is a global variable
             auto global_it = m_global_types.find(name);
             if (global_it != m_global_types.end()) {
@@ -900,19 +920,9 @@ IR_Reg IR_Generator::gen_expression(const AST_index& node) {
                 return dst;
             }
 
-            // Local variable — load from alloca slot
-            IR_Reg slot = lookup_var(name);
-            IR_Reg dst = new_reg();
-            IR_Instruction inst;
-            inst.op   = IR_Op::Load;
-            inst.dst  = dst;
-            inst.src1 = slot;
-            // Propagate type from the alloca slot
-            auto type_it = m_reg_types.find(slot);
-            inst.type = (type_it != m_reg_types.end()) ? type_it->second
-                        : IR_Type(Datatype_kind::Signed_int, 32);
-            emit(inst);
-            return dst;
+            // Should not reach here — semantic analyser should have caught this
+            ASSERT(false, "variable '" << name << "' not found in IR");
+            return IR_REG_NONE;
         }
 
         case AST_index_type::Binary_expression:
@@ -1160,7 +1170,18 @@ IR_Reg IR_Generator::gen_assignment(u32 assign_index) {
     const std::string& name = ast.identifiers[assign.target.index];
     m_current_source_token = ast.identifier_tokens[assign.target.index];
 
-    // Check if this is a global variable
+    // Check local variables first (allows shadowing of globals)
+    bool found_local = false;
+    for (auto it = m_var_scopes.rbegin(); it != m_var_scopes.rend(); ++it) {
+        auto found = it->find(name);
+        if (found != it->end()) {
+            found_local = true;
+            break;
+        }
+    }
+
+    // If not found locally, check if this is a global variable
+    if (!found_local) {
     auto global_it = m_global_types.find(name);
     if (global_it != m_global_types.end()) {
         IR_Reg val = gen_expression(assign.value);
@@ -1217,6 +1238,7 @@ IR_Reg IR_Generator::gen_assignment(u32 assign_index) {
 
         return val;
     }
+    } // end if (!found_local)
 
     // Local variable — existing logic
     IR_Reg slot = lookup_var(name);

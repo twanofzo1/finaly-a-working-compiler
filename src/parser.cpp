@@ -664,7 +664,7 @@ AST_index Parser::parse_datatype(){
 
 /// @brief parses a function declaration: fn name(params) : return_type { body }
 /// @return AST index of the function declaration
-AST_index Parser::parse_function_declaration(){
+AST_index Parser::parse_function_declaration(bool is_public){
     LOG("parse_function_declaration");
     ASSERT(
         m_current.type == Token_type::Function,
@@ -725,7 +725,7 @@ AST_index Parser::parse_function_declaration(){
 
     AST_index block = parse_block_statement();
 
-    Function_declaration func(name,datatypes,parameter_names,block,return_type);
+    Function_declaration func(name,datatypes,parameter_names,block,return_type, is_public);
     m_ast.function_declarations.push_back(func);
     AST_index index(AST_index_type::Function_declaration,m_ast.function_declarations.size() -1);
     return index;
@@ -760,7 +760,7 @@ AST_index Parser::parse_return_statement(){
 /// @brief parses a variable or const declaration: var/const name : type = expr;
 /// @param is_const  true if this is a const declaration
 /// @return AST index of the variable declaration
-AST_index Parser::parse_variable_declaration(bool is_const){
+AST_index Parser::parse_variable_declaration(bool is_const, bool is_public){
     LOG("parse_variable_declaration");
     if (m_current.type != Token_type::Var && m_current.type != Token_type::Const){
         syntax_error("Parsing variable declaration failed, expected: const or var",m_current);
@@ -808,7 +808,7 @@ AST_index Parser::parse_variable_declaration(bool is_const){
         advance();
     }
 
-    m_ast.variable_declarations.push_back(Variable_declaration(name, datatype, value, is_const));
+    m_ast.variable_declarations.push_back(Variable_declaration(name, datatype, value, is_const, is_public));
     return AST_index(AST_index_type::Variable_declaration, m_ast.variable_declarations.size() - 1);
 }
 
@@ -863,6 +863,14 @@ AST_index Parser::parse_statement(){
         case Token_type::Struct:{
             return parse_struct_declaration();
         }
+
+        case Token_type::Pub:{
+            return parse_pub_declaration();
+        }
+
+        case Token_type::Import:{
+            return parse_import_declaration();
+        }
         
         default:{
             WARNING("unknown statement type got: " << m_current.type);
@@ -876,7 +884,7 @@ AST_index Parser::parse_statement(){
 
 /// @brief parses a struct declaration: struct Name { type field; type field; ... }
 /// @return AST index of the struct declaration
-AST_index Parser::parse_struct_declaration(){
+AST_index Parser::parse_struct_declaration(bool is_public){
     LOG("parse_struct_declaration");
     ASSERT(
         m_current.type == Token_type::Struct,
@@ -930,6 +938,80 @@ AST_index Parser::parse_struct_declaration(){
     // Consume '}'
     advance();
 
-    m_ast.struct_declarations.push_back(Struct_declaration(name, field_types, field_names));
+    m_ast.struct_declarations.push_back(Struct_declaration(name, field_types, field_names, is_public));
     return AST_index(AST_index_type::Struct_declaration, m_ast.struct_declarations.size() - 1);
+}
+
+
+/// @brief parses an @import declaration: @import("filename")
+/// @return AST index of the import declaration
+AST_index Parser::parse_import_declaration(){
+    LOG("parse_import_declaration");
+    ASSERT(
+        m_current.type == Token_type::Import,
+        "expected @import but got " << m_current.type
+    );
+    Token import_token = m_current;
+    advance(); // skip @import
+
+    // Expect '('
+    if (m_current.type != Token_type::Left_parenthesis) {
+        syntax_error("expected '(' after @import", m_current);
+        return AST_index();
+    }
+    advance();
+
+    // Expect string literal (the file path)
+    if (m_current.type != Token_type::String_literal) {
+        syntax_error("expected file path string in @import(\"...\")", m_current);
+        return AST_index();
+    }
+    // Strip quotes from the string literal
+    std::string file_path(m_current.view.substr(1, m_current.view.size() - 2));
+    advance();
+
+    // Expect ')'
+    if (m_current.type != Token_type::Right_parenthesis) {
+        syntax_error("expected ')' after @import(\"...\"", m_current);
+        return AST_index();
+    }
+    advance();
+
+    // Optional semicolon
+    if (m_current.type == Token_type::Semicolon) {
+        advance();
+    }
+
+    m_ast.import_declarations.push_back(Import_declaration(file_path, import_token));
+    return AST_index(AST_index_type::Import_declaration, m_ast.import_declarations.size() - 1);
+}
+
+
+/// @brief parses a pub-prefixed declaration: pub fn ..., pub var ..., pub const ..., pub struct ...
+/// @return AST index of the underlying declaration (with is_public = true)
+AST_index Parser::parse_pub_declaration(){
+    LOG("parse_pub_declaration");
+    ASSERT(
+        m_current.type == Token_type::Pub,
+        "expected 'pub' keyword but got " << m_current.type
+    );
+    advance(); // skip 'pub'
+
+    switch (m_current.type) {
+        case Token_type::Function:
+            return parse_function_declaration(/*is_public=*/true);
+
+        case Token_type::Var:
+            return parse_variable_declaration(/*is_const=*/false, /*is_public=*/true);
+
+        case Token_type::Const:
+            return parse_variable_declaration(/*is_const=*/true, /*is_public=*/true);
+
+        case Token_type::Struct:
+            return parse_struct_declaration(/*is_public=*/true);
+
+        default:
+            syntax_error("'pub' can only be used before fn, var, const, or struct", m_current);
+            return AST_index();
+    }
 }

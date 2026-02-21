@@ -125,6 +125,9 @@ std::ostream& operator<<(std::ostream& os, const Token_type& type) {
         case Token_type::Var:               os << "Var";               break;
         case Token_type::Const:             os << "Const";             break;
         case Token_type::String_literal:    os << "String_literal";    break;
+        case Token_type::Struct:            os << "Struct";            break;
+        case Token_type::Pub:               os << "Pub";               break;
+        case Token_type::Import:            os << "Import";            break;
         default: os << "Unknown"; break;
     }
     return os;
