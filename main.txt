@@ -1,7 +1,19 @@
 @import("vec2.txt")
 
 
-fn main() : i32 {
 
-    /*this is a multi line comment*/return 0 // this is a comment
+fn main() : i32 {
+    var vec1 : vec2
+    vec1.x = 1.0
+    vec1.y = 2.0
+    var vec_2 : vec2 
+    vec_2.x = 3.0
+    vec_2.y = 4.0
+    var output := add_vec2(vec1, vec_2);
+
+    print("Result: ");
+    print(vec_2.y);
+    print(" ");
+    print(output.y);
+    return 0;
 }

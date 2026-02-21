@@ -162,7 +162,7 @@ void Lexer::lex(){
                             }
                             advance();
                         }
-                        advance(); // skip '*/' ('*' already skipped with prev advance)
+                        advance(); // skip '*/' 
                         continue;
                     }
                     else { push_token(Token_type::Divide,m_pos,m_pos+1); }

@@ -63,6 +63,8 @@ private:
     std::unordered_set<std::string> m_imported_files; //< set of already-imported file paths (to prevent circular imports)
     std::unordered_set<std::string> m_imported_function_names; //< names of functions that came from imports (pub or private)
     bool m_analysing_imported_code = false; //< true when inside an imported function body (allows access to imported-private symbols)                                                                 
+    AST_index m_inferred_return_type;        //< captured inferred return type while analysing a function with no explicit return type
+    std::unordered_set<u32> m_analysed_funcs; //< indices of function declarations already fully analysed (prevents double-analysis)
 
 public:
     Semantic_analyser(AST& ast, const std::string& source, const std::string& file_dir = "");
@@ -83,6 +85,7 @@ private:
     Token get_token(const AST_index& node);
 
     void pass1_collect_functions();
+    void pass_infer_return_types();
     void pass2_analyse();
 
     AST_index analyse_node(const AST_index& node);

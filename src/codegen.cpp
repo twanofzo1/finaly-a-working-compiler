@@ -905,7 +905,13 @@ void Codegen::emit_instruction(const IR_Instruction& inst) {
         u32 bytes = type_size(inst.type);
 
         if (is_float_type(inst.type)) {
-            emit("movsd " + std::to_string(field_off) + "(%rbp), %xmm0");
+            if (inst.type.bit_width <= 32) {
+                // f32: load 4 bytes and widen to f64 for computation
+                emit("movss " + std::to_string(field_off) + "(%rbp), %xmm0");
+                emit("cvtss2sd %xmm0, %xmm0");
+            } else {
+                emit("movsd " + std::to_string(field_off) + "(%rbp), %xmm0");
+            }
             store_xmm("%xmm0", inst.dst);
         } else {
             std::string suffix = size_suffix(bytes);
@@ -928,7 +934,13 @@ void Codegen::emit_instruction(const IR_Instruction& inst) {
 
         if (is_float_type(inst.type)) {
             load_xmm(inst.src1, "%xmm0");
-            emit("movsd %xmm0, " + std::to_string(field_off) + "(%rbp)");
+            if (inst.type.bit_width <= 32) {
+                // f32: narrow from f64 down to 4 bytes and store precisely
+                emit("cvtsd2ss %xmm0, %xmm0");
+                emit("movss %xmm0, " + std::to_string(field_off) + "(%rbp)");
+            } else {
+                emit("movsd %xmm0, " + std::to_string(field_off) + "(%rbp)");
+            }
         } else {
             load_reg(inst.src1, "%rax");
             std::string suffix = size_suffix(bytes);

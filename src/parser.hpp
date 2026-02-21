@@ -15,6 +15,8 @@ Description:
 #include "lexer.hpp"
 #include "ast.hpp"
 #include <set>
+#include <fstream>
+#include <algorithm>
 
 
 /// @brief the parser class, used for converting a vector of tokens into an AST
@@ -30,9 +32,10 @@ private:
     bool m_has_error = false;    //< flags whether the parser has encountered an error, used for error handling in the parser
     u32 m_synth_counter = 0;     //< counter for generating unique synthetic variable names
     std::set<std::string> m_struct_names; //< set of declared struct names, used to recognise struct types in is_data_type
+    std::string m_file_dir;               //< directory of the source file, used to resolve @import paths at parse time
 
 public:
-    Parser(std::vector<Token> tokens, std::string& input);
+    Parser(std::vector<Token> tokens, std::string& input, std::string file_dir = ".");
     AST get_AST();
     void parse();
     bool has_error() const;

@@ -346,7 +346,18 @@ void IR_Generator::gen_program() {
         }
     }
 
-    // Third pass: generate functions
+    // Third pass: pre-collect function return types from the (semantics-resolved) AST
+    // so that var-decl type inference works for any call order (e.g. main calls add_vec2
+    // before add_vec2 has been IR-generated)
+    for (const AST_index& stmt : root.statements) {
+        if (stmt.type == AST_index_type::Function_declaration) {
+            const Function_declaration& func = ast.function_declarations[stmt.index];
+            const std::string& fname = ast.identifiers[func.identifier.index];
+            m_func_return_types[fname] = resolve_type(func.return_type);
+        }
+    }
+
+    // Fourth pass: generate functions
     for (const AST_index& stmt : root.statements) {
         if (stmt.type == AST_index_type::Function_declaration) {
             gen_function(stmt.index);
@@ -556,14 +567,17 @@ void IR_Generator::gen_variable_decl(u32 var_index) {
         } else if (decl.value.type == AST_index_type::String_literal) {
             var_type = IR_Type(Datatype_kind::String, 64);
         } else if (decl.value.type == AST_index_type::Call_expression) {
-            // Infer type from the callee's return type
+            // Infer type from the callee's return type.
+            // Use the pre-collected AST-based map first (handles forward references).
             const Call_expression& call = ast.call_expressions[decl.value.index];
             const std::string& callee_name = ast.identifiers[call.callee.index];
             var_type = IR_Type(Datatype_kind::Signed_int, 32); // default
-            for (const auto& f : m_program.functions) {
-                if (f.name == callee_name) {
-                    var_type = f.return_type;
-                    break;
+            auto rt_it = m_func_return_types.find(callee_name);
+            if (rt_it != m_func_return_types.end()) {
+                var_type = rt_it->second;
+            } else {
+                for (const auto& f : m_program.functions) {
+                    if (f.name == callee_name) { var_type = f.return_type; break; }
                 }
             }
         } else {
@@ -1094,10 +1108,16 @@ IR_Reg IR_Generator::gen_call(u32 call_index) {
     if (is_builtin) {
         ret_type = IR_Type(Datatype_kind::Void, 0);
     } else {
-        for (const auto& func : m_program.functions) {
-            if (func.name == func_name) {
-                ret_type = func.return_type;
-                break;
+        // Check pre-collected return type map first (handles forward references)
+        auto rt_it = m_func_return_types.find(func_name);
+        if (rt_it != m_func_return_types.end()) {
+            ret_type = rt_it->second;
+        } else {
+            for (const auto& func : m_program.functions) {
+                if (func.name == func_name) {
+                    ret_type = func.return_type;
+                    break;
+                }
             }
         }
     }

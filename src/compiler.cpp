@@ -83,7 +83,7 @@ bool Compiler::lex() {
 
 bool Compiler::parse() {
     LOG("Parser");
-    Parser parser(m_tokens, m_input);
+    Parser parser(m_tokens, m_input, m_file_dir);
     parser.parse();
     if (parser.has_error()) {
         std::cerr << "Parsing failed." << std::endl;

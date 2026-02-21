@@ -19,7 +19,8 @@ Semantic_analyser::Semantic_analyser(AST& ast, const std::string& source, const 
 void Semantic_analyser::analyse() {
     push_scope(); // global scope
     pass1_collect_functions();
-    pass2_analyse(); 
+    pass_infer_return_types(); // infer return types for functions that omit them
+    pass2_analyse();
     pop_scope();
 }
 
@@ -311,6 +312,23 @@ void Semantic_analyser::pass1_collect_functions() {
     }
 }
 
+/// @brief pre-pass that infers return types for functions that omit an explicit annotation.
+/// Runs after pass1 (so all symbols are registered) and before pass2 (so callers see the
+/// correct type when they are analysed).
+void Semantic_analyser::pass_infer_return_types() {
+    // Snapshot the statement count — process_import won't run again here, but be safe
+    const std::vector<AST_index>& stmts = ast.block_statements[0].statements;
+    std::vector<AST_index> snapshot(stmts.begin(), stmts.end());
+
+    for (const AST_index& stmt : snapshot) {
+        if (stmt.type == AST_index_type::Function_declaration) {
+            if (ast.function_declarations[stmt.index].return_type.type == AST_index_type::Invalid) {
+                analyse_function(stmt.index);
+            }
+        }
+    }
+}
+
 void Semantic_analyser::pass2_analyse(){
     // global block is at index 0
     analyse_block(0,false); 
@@ -396,9 +414,14 @@ AST_index Semantic_analyser::analyse_block(u32 block_index, bool new_scope) {
 
 // ── Function declaration ──
 
-/// @brief analyses a function declaration: declares params, checks body
+/// @brief analyses a function declaration: declares params, checks body, infers return type if omitted
 void Semantic_analyser::analyse_function(u32 func_index) {
+    // Skip if already fully analysed (e.g. pre-analysed during pass_infer_return_types)
+    if (m_analysed_funcs.count(func_index)) return;
+    m_analysed_funcs.insert(func_index);
+
     const Function_declaration& func = ast.function_declarations[func_index];
+    bool infer_return = (func.return_type.type == AST_index_type::Invalid);
 
     // The function itself was already registered in pass 1.
     // Now analyse its body in a new scope.
@@ -416,11 +439,13 @@ void Semantic_analyser::analyse_function(u32 func_index) {
     }
 
     // Track which function we're inside for return-type checks
-    AST_index prev_return = m_current_return_type;
-    bool prev_inside      = m_inside_function;
-    bool prev_imported    = m_analysing_imported_code;
-    m_current_return_type  = func.return_type;
-    m_inside_function      = true;
+    AST_index prev_return   = m_current_return_type;
+    bool prev_inside        = m_inside_function;
+    bool prev_imported      = m_analysing_imported_code;
+    AST_index prev_inferred = m_inferred_return_type;
+    m_current_return_type   = func.return_type; // may be Invalid — signals "infer me"
+    m_inside_function       = true;
+    if (infer_return) m_inferred_return_type = AST_index(); // reset capture
 
     // If this function came from an import, allow access to imported-private symbols
     const std::string& func_name = ast.identifiers[func.identifier.index];
@@ -431,9 +456,27 @@ void Semantic_analyser::analyse_function(u32 func_index) {
     // Analyse the function body (don't push another scope – we just did)
     analyse_block(func.block.index, false);
 
+    // ── Write back inferred return type ──
+    if (infer_return) {
+        AST_index resolved = m_inferred_return_type;
+        if (resolved.type == AST_index_type::Invalid) {
+            // No return-with-value found → void
+            ast.datatypes.push_back(Datatype(Datatype_kind::Void, 0));
+            resolved = AST_index(AST_index_type::Datatype, ast.datatypes.size() - 1);
+        }
+        // Patch the AST node
+        ast.function_declarations[func_index].return_type = resolved;
+        // Update the symbol in the symbol table so callers see the right type
+        Symbol* sym = lookup(func_name);
+        if (sym && sym->type == Symbol_type::Function) {
+            sym->return_type = resolved;
+        }
+    }
+
     m_current_return_type     = prev_return;
     m_inside_function         = prev_inside;
     m_analysing_imported_code = prev_imported;
+    m_inferred_return_type    = prev_inferred;
 
     pop_scope();
 }
@@ -552,6 +595,12 @@ void Semantic_analyser::analyse_return(u32 ret_index) {
 
     if (ret.value.type != AST_index_type::Invalid) {
         AST_index val_type = analyse_expression(ret.value);
+
+        // Capture inferred return type when the function has no explicit annotation
+        if (m_current_return_type.type == AST_index_type::Invalid &&
+            m_inferred_return_type.type == AST_index_type::Invalid) {
+            m_inferred_return_type = val_type;
+        }
 
         // Check against the declared return type
         if (m_current_return_type.type == AST_index_type::Datatype &&

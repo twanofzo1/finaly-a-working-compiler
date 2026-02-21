@@ -17,8 +17,9 @@ Description:
 /// @brief constructs a parser from a token stream and the source input
 /// @param tokens  the tokens produced by the lexer
 /// @param input   the raw source text (used for error messages)
-Parser::Parser(std::vector<Token> tokens, std::string& input)
-    : m_tokens(tokens), m_token_index(0), m_input(input) {
+/// @param file_dir the directory of the source file (used to resolve @import paths at parse time)
+Parser::Parser(std::vector<Token> tokens, std::string& input, std::string file_dir)
+    : m_tokens(tokens), m_token_index(0), m_input(input), m_file_dir(std::move(file_dir)) {
     if (!m_tokens.empty()) {
         m_current = m_tokens[0];
     } else {
@@ -980,6 +981,31 @@ AST_index Parser::parse_import_declaration(){
     // Optional semicolon
     if (m_current.type == Token_type::Semicolon) {
         advance();
+    }
+
+    // Pre-register struct names from the imported file so is_data_type works
+    // for variable declarations that follow this @import in the current file.
+    {
+        std::string resolved = (file_path.size() > 0 && file_path[0] == '/') ? file_path
+                                : m_file_dir + "/" + file_path;
+        std::ifstream stream(resolved);
+        if (stream.is_open()) {
+            std::string src((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
+            src.erase(std::remove(src.begin(), src.end(), '\r'), src.end());
+            Lexer pre_lexer(src);
+            pre_lexer.lex();
+            if (!pre_lexer.has_error()) {
+                const auto& toks = pre_lexer.get_tokens();
+                for (u64 i = 0; i + 1 < toks.size(); ++i) {
+                    u64 j = i;
+                    if (toks[j].type == Token_type::Pub) ++j;
+                    if (toks[j].type == Token_type::Struct && j + 1 < toks.size() &&
+                        toks[j + 1].type == Token_type::Identifier) {
+                        m_struct_names.insert(std::string(toks[j + 1].view));
+                    }
+                }
+            }
+        }
     }
 
     m_ast.import_declarations.push_back(Import_declaration(file_path, import_token));

@@ -1,10 +1,10 @@
-pub struct Vec2 {
+pub struct vec2 {
     f32 x;
     f32 y;
 };
 
-pub fn add_vec2(Vec2 a, Vec2 b) {
-    var added : Vec2
+pub fn add_vec2(vec2 a, vec2 b) {
+    var added : vec2
     added.x = a.x + b.x
     added.y = a.y + b.y
     return added;

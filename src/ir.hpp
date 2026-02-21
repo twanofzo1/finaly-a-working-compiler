@@ -188,6 +188,10 @@ private:
     // Register → type tracking (for type propagation in binary/unary)
     std::unordered_map<IR_Reg, IR_Type> m_reg_types;
 
+    // Function name → return type (pre-collected from the AST before body generation
+    // so that call-site type inference works regardless of declaration order)
+    std::unordered_map<std::string, IR_Type> m_func_return_types;
+
 public:
     IR_Generator(AST& ast);
     IR_Program generate();
