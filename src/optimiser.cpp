@@ -1,3 +1,11 @@
+/*
+Author: Twan Roodenburg
+Date: 22/02/2026
+File: optimiser.cpp
+Description: 
+    the optimiser module, which defines the IR optimisation passes and helper functions.
+*/
+
 #include "optimiser.hpp"
 #include "log.hpp"
 #include <algorithm>

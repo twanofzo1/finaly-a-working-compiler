@@ -1,9 +1,16 @@
+/*
+Author: Twan Roodenburg
+Date: 22/02/2026
+File: ir.cpp
+Description: 
+    the IR (Intermediate Representation) module, which defines the IR data structures and helper functions.
+*/
+
+
 #include "ir.hpp"
 #include <sstream>
 
-// ─────────────────────────────────────────────
-// IR_Type
-// ─────────────────────────────────────────────
+
 
 /// @brief constructs an empty IR type (void, 0 bits)
 IR_Type::IR_Type() : kind(Datatype_kind::Void), bit_width(0) {}
@@ -29,9 +36,7 @@ std::string IR_Type::to_string() const {
     return "?";
 }
 
-// ─────────────────────────────────────────────
-// IR_Op printing
-// ─────────────────────────────────────────────
+
 
 /// @brief prints IR_Op as a short mnemonic (e.g. "add", "store", "gload")
 std::ostream& operator<<(std::ostream& os, const IR_Op& op) {
@@ -77,9 +82,7 @@ std::ostream& operator<<(std::ostream& os, const IR_Op& op) {
     return os;
 }
 
-// ─────────────────────────────────────────────
-// IR_Instruction
-// ─────────────────────────────────────────────
+
 
 /// @brief constructs a default IR instruction (const_int, all fields zeroed)
 IR_Instruction::IR_Instruction()
@@ -184,9 +187,7 @@ void IR_Instruction::print() const {
     }
 }
 
-// ─────────────────────────────────────────────
-// IR_Function / IR_Program printing
-// ─────────────────────────────────────────────
+
 
 /// @brief debug prints a full IR function with params, return type, and all instructions
 void IR_Function::print() const {
@@ -231,9 +232,7 @@ void IR_GlobalVar::print() const {
     std::cout << std::endl;
 }
 
-// ─────────────────────────────────────────────
-// IR_Generator — construction
-// ─────────────────────────────────────────────
+
 
 /// @brief constructs an IR generator from an AST
 IR_Generator::IR_Generator(AST& ast)
@@ -245,9 +244,7 @@ IR_Program IR_Generator::generate() {
     return m_program;
 }
 
-// ─────────────────────────────────────────────
-// Register / label / emit helpers
-// ─────────────────────────────────────────────
+
 
 /// @brief allocates a new virtual register number
 IR_Reg IR_Generator::new_reg() {
@@ -271,9 +268,7 @@ void IR_Generator::emit(const IR_Instruction& inst) {
     m_current_func->instructions.back().source_token = m_current_source_token;
 }
 
-// ─────────────────────────────────────────────
-// Variable scope helpers
-// ─────────────────────────────────────────────
+
 
 /// @brief pushes a new variable scope for tracking local alloca slots
 void IR_Generator::push_var_scope() {
@@ -305,9 +300,7 @@ void IR_Generator::declare_var(const std::string& name, IR_Reg alloca_reg) {
     m_var_scopes.back()[name] = alloca_reg;
 }
 
-// ─────────────────────────────────────────────
-// Type helpers
-// ─────────────────────────────────────────────
+
 
 /// @brief converts an AST datatype index to an IR_Type
 IR_Type IR_Generator::resolve_type(const AST_index& dt_index) {
@@ -324,9 +317,7 @@ IR_Type IR_Generator::resolve_type(const AST_index& dt_index) {
     return IR_Type(); // void
 }
 
-// ─────────────────────────────────────────────
-// Top-level generation
-// ─────────────────────────────────────────────
+
 
 /// @brief generates the full program: first globals, then functions
 void IR_Generator::gen_program() {
@@ -365,9 +356,7 @@ void IR_Generator::gen_program() {
     }
 }
 
-// ─────────────────────────────────────────────
-// Global variable generation
-// ─────────────────────────────────────────────
+
 
 /// @brief generates an IR global variable with its initial value
 void IR_Generator::gen_global_var(u32 var_index) {
@@ -413,9 +402,7 @@ void IR_Generator::gen_global_var(u32 var_index) {
     m_program.globals.push_back(global);
 }
 
-// ─────────────────────────────────────────────
-// Function generation
-// ─────────────────────────────────────────────
+
 
 /// @brief generates an IR function: params, body, and all instructions
 void IR_Generator::gen_function(u32 func_index) {
@@ -478,9 +465,7 @@ void IR_Generator::gen_function(u32 func_index) {
     m_current_func = nullptr;
 }
 
-// ─────────────────────────────────────────────
-// Block / statement generation
-// ─────────────────────────────────────────────
+
 
 /// @brief generates IR for all statements in a block
 void IR_Generator::gen_block(u32 block_index) {
@@ -545,9 +530,7 @@ void IR_Generator::gen_statement(const AST_index& node) {
     }
 }
 
-// ─────────────────────────────────────────────
-// Variable declaration
-// ─────────────────────────────────────────────
+
 
 /// @brief generates IR for a local variable declaration: alloca, optional store
 void IR_Generator::gen_variable_decl(u32 var_index) {
@@ -667,9 +650,7 @@ void IR_Generator::gen_variable_decl(u32 var_index) {
     }
 }
 
-// ─────────────────────────────────────────────
-// If statement
-// ─────────────────────────────────────────────
+
 
 /// @brief generates IR for an if statement with branch, then, optional else, and end labels
 void IR_Generator::gen_if(u32 if_index) {
@@ -740,13 +721,7 @@ void IR_Generator::gen_if(u32 if_index) {
     }
 }
 
-// ─────────────────────────────────────────────
-// For statement
-//   for init condition post { block }
-//   →  init; L_cond: branch cond L_body L_end;
-//      L_body: block; post; jump L_cond;
-//      L_end:
-// ─────────────────────────────────────────────
+
 
 /// @brief generates IR for a for loop: init, cond label, branch, body, post, jump back
 void IR_Generator::gen_for(u32 for_index) {
@@ -822,9 +797,7 @@ void IR_Generator::gen_for(u32 for_index) {
     pop_var_scope();
 }
 
-// ─────────────────────────────────────────────
-// Return statement
-// ─────────────────────────────────────────────
+
 
 /// @brief generates IR for a return statement with optional value
 void IR_Generator::gen_return(u32 ret_index) {
@@ -851,9 +824,7 @@ void IR_Generator::gen_return(u32 ret_index) {
     emit(inst);
 }
 
-// ─────────────────────────────────────────────
-// Expression generation — returns result register
-// ─────────────────────────────────────────────
+
 
 /// @brief generates IR for any expression node and returns the result register
 IR_Reg IR_Generator::gen_expression(const AST_index& node) {
@@ -959,9 +930,6 @@ IR_Reg IR_Generator::gen_expression(const AST_index& node) {
     }
 }
 
-// ─────────────────────────────────────────────
-// Binary expression
-// ─────────────────────────────────────────────
 
 /// @brief maps a Token_type to the corresponding IR binary operation
 static IR_Op token_to_binop(Token_type t) {
@@ -1041,9 +1009,7 @@ IR_Reg IR_Generator::gen_binary(u32 bin_index) {
     return dst;
 }
 
-// ─────────────────────────────────────────────
-// Unary expression
-// ─────────────────────────────────────────────
+
 
 /// @brief generates IR for a unary expression (negation, bitwise not, logical not)
 IR_Reg IR_Generator::gen_unary(u32 un_index) {
@@ -1086,9 +1052,7 @@ IR_Reg IR_Generator::gen_unary(u32 un_index) {
     return dst;
 }
 
-// ─────────────────────────────────────────────
-// Call expression
-// ─────────────────────────────────────────────
+
 
 /// @brief generates IR for a function call and returns the result register
 IR_Reg IR_Generator::gen_call(u32 call_index) {
@@ -1135,9 +1099,7 @@ IR_Reg IR_Generator::gen_call(u32 call_index) {
     return dst;
 }
 
-// ─────────────────────────────────────────────
-// Assignment expression
-// ─────────────────────────────────────────────
+
 
 /// @brief generates IR for an assignment (simple or compound, local or global)
 IR_Reg IR_Generator::gen_assignment(u32 assign_index) {
@@ -1325,9 +1287,7 @@ IR_Reg IR_Generator::gen_assignment(u32 assign_index) {
 
     return val;
 }
-// ─────────────────────────────────────────────
-// Struct declaration — compute layout
-// ─────────────────────────────────────────────
+
 
 /// @brief computes the memory layout for a struct (field offsets and total size)
 void IR_Generator::gen_struct_decl(u32 struct_index) {
@@ -1369,9 +1329,7 @@ void IR_Generator::gen_struct_decl(u32 struct_index) {
     m_program.struct_layouts[name] = layout;
 }
 
-// ─────────────────────────────────────────────
-// Member access expression (rvalue)
-// ─────────────────────────────────────────────
+
 
 /// @brief helper to walk a member access chain and return (base_slot_reg, byte_offset, field_type)
 static void resolve_member_access(

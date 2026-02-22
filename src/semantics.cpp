@@ -1,12 +1,20 @@
+/*
+Author: Twan Roodenburg
+Date: 22/02/2026
+File: semantics.cpp
+Description: 
+    the semantic analysis module, which performs semantic checks on the AST and generates symbol tables.
+*/
+
+
 #include "semantics.hpp"
-#include "print_colors.h"
+#include "print_colors.hpp"
 #include "lexer.hpp"
 #include "parser.hpp"
 #include <fstream>
 #include <algorithm>
 
 //_________________________________________ Public methods _________________________________________
-
 
 /// @brief constructs the semantic analyser with an AST and source text
 Semantic_analyser::Semantic_analyser(AST& ast, const std::string& source, const std::string& file_dir)

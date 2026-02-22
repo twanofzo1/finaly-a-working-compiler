@@ -1,6 +1,6 @@
 /*
 Author: Twan Roodenburg
-Date: 18/02/2026
+Date: 22/02/2026
 File: lexer.hpp
 Description: 
     The lexer for the program, 

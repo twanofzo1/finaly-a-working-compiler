@@ -1,10 +1,20 @@
+/*
+Author: Twan Roodenburg
+Date: 22/02/2026
+File: codegen.cpp
+Description: 
+    The code generator for the compiler, which takes an IR program and generates x86-64 assembly code.
+    It handles register allocation, stack management, and emitting assembly instructions for each IR instruction.
+    none of the structs have any functionality beyond storing their data and printing themselves for debugging purposes
+*/
+
 #include "codegen.hpp"
 #include <fstream>
 #include <algorithm>
 #include <cmath>
 #include <unordered_set>
 
-
+//_________________________________________ Public methods _________________________________________
 
 /// @brief constructs the code generator from an IR program
 Codegen::Codegen(const IR_Program& program)
@@ -28,6 +38,7 @@ void Codegen::write(const std::string& path) {
 }
 
 
+//_________________________________________ Private methods _________________________________________
 
 
 /// @brief emits a single indented assembly line

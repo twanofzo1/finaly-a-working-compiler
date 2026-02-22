@@ -1,3 +1,11 @@
+/*
+Author: Twan Roodenburg
+Date: 22/02/2026
+File: ir.cpp
+Description: 
+    the IR (Intermediate Representation) module, which defines the IR data structures and helper functions.
+*/
+
 #pragma once
 #include <vector>
 #include <string>
@@ -6,9 +14,7 @@
 #include "ast.hpp"
 #include "log.hpp"
 
-// ─────────────────────────────────────────────
-// IR types
-// ─────────────────────────────────────────────
+
 
 struct IR_Type {
     Datatype_kind kind;
@@ -24,9 +30,7 @@ struct IR_Type {
 using IR_Reg = u32;
 constexpr IR_Reg IR_REG_NONE = UINT32_MAX;
 
-// ─────────────────────────────────────────────
-// IR opcodes
-// ─────────────────────────────────────────────
+
 
 enum class IR_Op {
     // Constants
@@ -78,9 +82,7 @@ enum class IR_Op {
 
 std::ostream& operator<<(std::ostream& os, const IR_Op& op);
 
-// ─────────────────────────────────────────────
-// IR instruction
-// ─────────────────────────────────────────────
+
 
 struct IR_Instruction {
     IR_Op op;
@@ -108,9 +110,7 @@ struct IR_Instruction {
     void print() const;
 };
 
-// ─────────────────────────────────────────────
-// IR function & program
-// ─────────────────────────────────────────────
+
 
 struct IR_Function {
     std::string name;
@@ -121,9 +121,7 @@ struct IR_Function {
     void print() const;
 };
 
-// ─────────────────────────────────────────────
-// Global variable
-// ─────────────────────────────────────────────
+
 
 struct IR_GlobalVar {
     std::string name;
@@ -138,9 +136,7 @@ struct IR_GlobalVar {
     void print() const;
 };
 
-// ─────────────────────────────────────────────
-// Struct layout (field offsets & total size)
-// ─────────────────────────────────────────────
+
 
 struct IR_StructLayout {
     std::string name;
@@ -158,9 +154,7 @@ struct IR_Program {
     void print() const;
 };
 
-// ─────────────────────────────────────────────
-// IR generator — walks the AST, emits IR
-// ─────────────────────────────────────────────
+
 
 class IR_Generator {
 private:
@@ -197,21 +191,21 @@ public:
     IR_Program generate();
 
 private:
-    // ── register / label helpers ──
-    IR_Reg new_reg();
+
+IR_Reg new_reg();
     u32    new_label();
     void   emit(const IR_Instruction& inst);
 
-    // ── scope helpers ──
+
     void   push_var_scope();
     void   pop_var_scope();
     IR_Reg lookup_var(const std::string& name);
     void   declare_var(const std::string& name, IR_Reg alloca_reg);
 
-    // ── type helpers ──
+
     IR_Type resolve_type(const AST_index& dt_index);
 
-    // ── code generation ──
+
     void   gen_program();
     void   gen_global_var(u32 var_index);
     void   gen_function(u32 func_index);
@@ -223,7 +217,7 @@ private:
     void   gen_return(u32 ret_index);
     void   gen_struct_decl(u32 struct_index);
 
-    // Expression generation — returns the register holding the result
+
     IR_Reg gen_expression(const AST_index& node);
     IR_Reg gen_binary(u32 bin_index);
     IR_Reg gen_unary(u32 un_index);

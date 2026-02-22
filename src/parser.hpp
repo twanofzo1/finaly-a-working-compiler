@@ -10,7 +10,7 @@ Description:
 
 
 #pragma once
-#include "print_colors.h"
+#include "print_colors.hpp"
 #include "modern_types.h"
 #include "lexer.hpp"
 #include "ast.hpp"

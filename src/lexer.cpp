@@ -1,6 +1,6 @@
 /*
 Author: Twan Roodenburg
-Date: 18/02/2026
+Date: 22/02/2026
 File: lexer.cpp
 Description: 
     The lexer for the program, 
@@ -12,7 +12,7 @@ Description:
 */
 
 #include "lexer.hpp"
-
+#include "print_colors.hpp"
 
 
 /// @brief a map of keywords to their corresponding token types
@@ -269,12 +269,13 @@ void Lexer::lexer_error(const std::string& message){
     for (u64 i = 0; i < m_pos; ++i) {
         if (m_input[i] == '\n') ++line;
     }
-
+    set_terminal_color(Terminal_color::Red);
     std::cerr << "Lexer error at line " << line << ", position " << m_pos << ": " << message << std::endl;
     std::string line_content = m_input.substr(m_input.rfind('\n', m_pos) + 1, m_input.find('\n', m_pos) - m_input.rfind('\n', m_pos) - 1);
     std::cerr << line_content << std::endl;
     for (u64 i = 0; i < m_pos - m_input.rfind('\n', m_pos) - 1; ++i) std::cerr << ' ';
     std::cerr << '^' << std::endl;
+    set_terminal_color(Terminal_color::Default);
 
     m_has_error = true;
 }

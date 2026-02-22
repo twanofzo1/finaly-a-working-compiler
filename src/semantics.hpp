@@ -1,3 +1,11 @@
+/*
+Author: Twan Roodenburg
+Date: 22/02/2026
+File: semantics.hpp
+Description: 
+    the semantic analysis module, which performs semantic checks on the AST and generates symbol tables.
+*/
+
 #pragma once
 #include <unordered_map>
 #include <unordered_set>

@@ -1,7 +1,16 @@
+/*
+Author: Twan Roodenburg
+Date: 22/02/2026
+File: optimiser.cpp
+Description: 
+    the optimiser module, which defines the IR optimisation passes and helper functions.
+*/
+
+
 #pragma once
 #include "ir.hpp"
 #include "modern_types.h"
-#include "print_colors.h"
+#include "print_colors.hpp"
 #include <unordered_map>
 #include <unordered_set>
 

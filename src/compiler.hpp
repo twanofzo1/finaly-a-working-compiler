@@ -1,3 +1,12 @@
+/*
+Author: Twan Roodenburg
+Date: 22/02/2026
+File: compiler.hpp
+Description: 
+    the main compiler class, which orchestrates the entire compilation process by invoking 
+    the lexer, parser, semantic analyser, IR generator, IR optimiser, and code generator in sequence.
+*/
+
 #pragma once
 #include "token.hpp"
 #include "lexer.hpp"

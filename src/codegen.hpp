@@ -1,3 +1,13 @@
+/*
+Author: Twan Roodenburg
+Date: 22/02/2026
+File: codegen.hpp
+Description: 
+    The code generator for the compiler, which takes an IR program and generates x86-64 assembly code.
+    It handles register allocation, stack management, and emitting assembly instructions for each IR instruction.
+    none of the structs have any functionality beyond storing their data and printing themselves for debugging purposes
+*/
+
 #pragma once
 #include "ir.hpp"
 #include <sstream>

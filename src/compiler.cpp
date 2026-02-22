@@ -1,4 +1,16 @@
+/*
+Author: Twan Roodenburg
+Date: 22/02/2026
+File: compiler.cpp
+Description: 
+    the main compiler class, which orchestrates the entire compilation process by invoking 
+    the lexer, parser, semantic analyser, IR generator, IR optimiser, and code generator in sequence.
+*/
+
+
 #include "compiler.hpp"
+
+//_________________________________________ Public methods _________________________________________
 
 Compiler::Compiler() {}
 
@@ -68,6 +80,35 @@ void Compiler::run()
 void Compiler::cleanup(){}
 
 
+#ifndef NDEBUG
+void Compiler::print_tokens() const {
+    for (const auto& token : m_tokens) {
+        std::cout << token.type << " " << token.view << std::endl;
+    }
+}
+void Compiler::print_ast() const {
+    m_ast.print();
+}
+void Compiler::print_ir() const {
+    m_ir.print();
+}
+void Compiler::print_optimised_ir() const {
+    m_optimised_ir.print();
+}
+void Compiler::print_assembly() const {
+    std::cout << m_assembly << std::endl;
+}
+#else
+void Compiler::print_tokens() const {}
+void Compiler::print_ast() const {}
+void Compiler::print_ir() const {}
+void Compiler::print_optimised_ir() const {}
+void Compiler::print_assembly() const {}
+#endif
+
+//_________________________________________ Private methods _________________________________________
+
+
 
 bool Compiler::lex() {
     LOG("Lexer");
@@ -131,30 +172,3 @@ bool Compiler::generate_assembly() {
     asm_file.close();
     return true;
 }
-
-
-#ifndef NDEBUG
-void Compiler::print_tokens() const {
-    for (const auto& token : m_tokens) {
-        std::cout << token.type << " " << token.view << std::endl;
-    }
-}
-void Compiler::print_ast() const {
-    m_ast.print();
-}
-void Compiler::print_ir() const {
-    m_ir.print();
-}
-void Compiler::print_optimised_ir() const {
-    m_optimised_ir.print();
-}
-void Compiler::print_assembly() const {
-    std::cout << m_assembly << std::endl;
-}
-#else
-void Compiler::print_tokens() const {}
-void Compiler::print_ast() const {}
-void Compiler::print_ir() const {}
-void Compiler::print_optimised_ir() const {}
-void Compiler::print_assembly() const {}
-#endif
