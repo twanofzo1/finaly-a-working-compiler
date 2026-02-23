@@ -343,7 +343,7 @@ void IR_Generator::gen_program() {
     for (const AST_index& stmt : root.statements) {
         if (stmt.type == AST_index_type::Function_declaration) {
             const Function_declaration& func = ast.function_declarations[stmt.index];
-            const std::string& fname = ast.identifiers[func.identifier.index];
+            const std::string& fname = ast.identifiers[func.identifier.index].name;
             m_func_return_types[fname] = resolve_type(func.return_type);
         }
     }
@@ -361,7 +361,7 @@ void IR_Generator::gen_program() {
 /// @brief generates an IR global variable with its initial value
 void IR_Generator::gen_global_var(u32 var_index) {
     const Variable_declaration& decl = ast.variable_declarations[var_index];
-    const std::string& name = ast.identifiers[decl.name.index];
+    const std::string& name = ast.identifiers[decl.name.index].name;
 
     // Determine type
     IR_Type var_type;
@@ -389,12 +389,12 @@ void IR_Generator::gen_global_var(u32 var_index) {
 
     // Extract constant initial value
     if (decl.value.type == AST_index_type::Integer) {
-        global.int_init = ast.integers[decl.value.index];
+        global.int_init = ast.integers[decl.value.index].value;
     } else if (decl.value.type == AST_index_type::Float_literal) {
-        global.float_init = ast.floats[decl.value.index];
+        global.float_init = ast.floats[decl.value.index].value;
         global.has_float_init = true;
     } else if (decl.value.type == AST_index_type::String_literal) {
-        global.string_init = ast.string_literals[decl.value.index];
+        global.string_init = ast.string_literals[decl.value.index].value;
         global.has_string_init = true;
     }
 
@@ -407,15 +407,15 @@ void IR_Generator::gen_global_var(u32 var_index) {
 /// @brief generates an IR function: params, body, and all instructions
 void IR_Generator::gen_function(u32 func_index) {
     const Function_declaration& func = ast.function_declarations[func_index];
-    m_current_source_token = ast.identifier_tokens[func.identifier.index];
+    m_current_source_token = ast.identifiers[func.identifier.index].token;
 
     IR_Function ir_func;
-    ir_func.name = ast.identifiers[func.identifier.index];
+    ir_func.name = ast.identifiers[func.identifier.index].name;
     ir_func.return_type = resolve_type(func.return_type);
 
     // Collect parameters
     for (u64 i = 0; i < func.names.size(); ++i) {
-        std::string pname = ast.identifiers[func.names[i].index];
+        std::string pname = ast.identifiers[func.names[i].index].name;
         IR_Type ptype = (i < func.datatypes.size()) ? resolve_type(func.datatypes[i]) : IR_Type();
         ir_func.params.push_back({pname, ptype});
     }
@@ -535,8 +535,8 @@ void IR_Generator::gen_statement(const AST_index& node) {
 /// @brief generates IR for a local variable declaration: alloca, optional store
 void IR_Generator::gen_variable_decl(u32 var_index) {
     const Variable_declaration& decl = ast.variable_declarations[var_index];
-    const std::string& name = ast.identifiers[decl.name.index];
-    m_current_source_token = ast.identifier_tokens[decl.name.index];
+    const std::string& name = ast.identifiers[decl.name.index].name;
+    m_current_source_token = ast.identifiers[decl.name.index].token;
 
     // Determine the type
     IR_Type var_type;
@@ -553,7 +553,7 @@ void IR_Generator::gen_variable_decl(u32 var_index) {
             // Infer type from the callee's return type.
             // Use the pre-collected AST-based map first (handles forward references).
             const Call_expression& call = ast.call_expressions[decl.value.index];
-            const std::string& callee_name = ast.identifiers[call.callee.index];
+            const std::string& callee_name = ast.identifiers[call.callee.index].name;
             var_type = IR_Type(Datatype_kind::Signed_int, 32); // default
             auto rt_it = m_func_return_types.find(callee_name);
             if (rt_it != m_func_return_types.end()) {
@@ -830,8 +830,8 @@ void IR_Generator::gen_return(u32 ret_index) {
 IR_Reg IR_Generator::gen_expression(const AST_index& node) {
     switch (node.type) {
         case AST_index_type::Integer: {
-            m_current_source_token = ast.integer_tokens[node.index];
-            i64 val = ast.integers[node.index];
+            m_current_source_token = ast.integers[node.index].token;
+            i64 val = ast.integers[node.index].value;
             IR_Reg dst = new_reg();
             IR_Instruction inst;
             inst.op   = IR_Op::Const_int;
@@ -843,8 +843,8 @@ IR_Reg IR_Generator::gen_expression(const AST_index& node) {
         }
 
         case AST_index_type::Float_literal: {
-            m_current_source_token = ast.float_tokens[node.index];
-            double val = ast.floats[node.index];
+            m_current_source_token = ast.floats[node.index].token;
+            double val = ast.floats[node.index].value;
             IR_Reg dst = new_reg();
             IR_Instruction inst;
             inst.op   = IR_Op::Const_float;
@@ -856,8 +856,8 @@ IR_Reg IR_Generator::gen_expression(const AST_index& node) {
         }
 
         case AST_index_type::String_literal: {
-            m_current_source_token = ast.string_tokens[node.index];
-            const std::string& val = ast.string_literals[node.index];
+            m_current_source_token = ast.string_literals[node.index].token;
+            const std::string& val = ast.string_literals[node.index].value;
             IR_Reg dst = new_reg();
             IR_Instruction inst;
             inst.op        = IR_Op::Const_string;
@@ -869,8 +869,8 @@ IR_Reg IR_Generator::gen_expression(const AST_index& node) {
         }
 
         case AST_index_type::Identifier: {
-            m_current_source_token = ast.identifier_tokens[node.index];
-            const std::string& name = ast.identifiers[node.index];
+            m_current_source_token = ast.identifiers[node.index].token;
+            const std::string& name = ast.identifiers[node.index].name;
 
             // Check local variables first (allows shadowing of globals)
             bool found_local = false;
@@ -1057,8 +1057,8 @@ IR_Reg IR_Generator::gen_unary(u32 un_index) {
 /// @brief generates IR for a function call and returns the result register
 IR_Reg IR_Generator::gen_call(u32 call_index) {
     const Call_expression& call = ast.call_expressions[call_index];
-    const std::string& func_name = ast.identifiers[call.callee.index];
-    m_current_source_token = ast.identifier_tokens[call.callee.index];
+    const std::string& func_name = ast.identifiers[call.callee.index].name;
+    m_current_source_token = ast.identifiers[call.callee.index].token;
 
     // Generate argument values
     std::vector<IR_Reg> arg_regs;
@@ -1149,8 +1149,8 @@ IR_Reg IR_Generator::gen_assignment(u32 assign_index) {
 
     ASSERT(assign.target.type == AST_index_type::Identifier,
            "assignment target must be an identifier in IR gen");
-    const std::string& name = ast.identifiers[assign.target.index];
-    m_current_source_token = ast.identifier_tokens[assign.target.index];
+    const std::string& name = ast.identifiers[assign.target.index].name;
+    m_current_source_token = ast.identifiers[assign.target.index].token;
 
     // Check local variables first (allows shadowing of globals)
     bool found_local = false;
@@ -1292,14 +1292,14 @@ IR_Reg IR_Generator::gen_assignment(u32 assign_index) {
 /// @brief computes the memory layout for a struct (field offsets and total size)
 void IR_Generator::gen_struct_decl(u32 struct_index) {
     const Struct_declaration& decl = ast.struct_declarations[struct_index];
-    const std::string& name = ast.identifiers[decl.name.index];
+    const std::string& name = ast.identifiers[decl.name.index].name;
 
     IR_StructLayout layout;
     layout.name = name;
     u32 offset = 0;
 
     for (u64 i = 0; i < decl.field_names.size(); ++i) {
-        layout.field_names.push_back(ast.identifiers[decl.field_names[i].index]);
+        layout.field_names.push_back(ast.identifiers[decl.field_names[i].index].name);
 
         IR_Type ft = resolve_type(decl.field_types[i]);
         layout.field_types.push_back(ft);
@@ -1343,7 +1343,7 @@ static void resolve_member_access(
 {
     if (node.type == AST_index_type::Member_access) {
         const Member_access_expression& ma = ast.member_access_expressions[node.index];
-        const std::string& member = ast.identifiers[ma.member.index];
+        const std::string& member = ast.identifiers[ma.member.index].name;
 
         // Recursively resolve the object
         IR_Reg base;
@@ -1370,7 +1370,7 @@ static void resolve_member_access(
         }
         ASSERT(false, "struct '" << obj_type.struct_name << "' has no field '" << member << "'");
     } else if (node.type == AST_index_type::Identifier) {
-        const std::string& name = ast.identifiers[node.index];
+        const std::string& name = ast.identifiers[node.index].name;
 
         // Look up in local var scopes
         for (auto it = var_scopes.rbegin(); it != var_scopes.rend(); ++it) {

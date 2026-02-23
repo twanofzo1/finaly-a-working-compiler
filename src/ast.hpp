@@ -256,6 +256,42 @@ struct Member_access_expression
     #endif
 };
 
+/// @brief an integer literal node, bundles the value and its source token together
+struct Integer_literal
+{
+    i64 value;
+    Token token;
+
+    Integer_literal(i64 value, Token token) : value(value), token(token) {}
+};
+
+/// @brief a float literal node, bundles the value and its source token together
+struct Float_literal
+{
+    double value;
+    Token token;
+
+    Float_literal(double value, Token token) : value(value), token(token) {}
+};
+
+/// @brief an identifier node, bundles the name string and its source token together
+struct Identifier_node
+{
+    std::string name;
+    Token token;
+
+    Identifier_node(std::string name, Token token) : name(std::move(name)), token(token) {}
+};
+
+/// @brief a string literal node, bundles the value and its source token together
+struct String_literal
+{
+    std::string value;
+    Token token;
+
+    String_literal(std::string value, Token token) : value(std::move(value)), token(token) {}
+};
+
 /// @brief an import declaration node in the AST (e.g. @import("math.txt"))
 struct Import_declaration
 {
@@ -274,14 +310,10 @@ struct Import_declaration
 /// this design allows for a simple and efficient representation of the AST, as well as easy traversal and manipulation of the AST with minimal memory overhead
 struct AST
 {
-    std::vector<i64> integers;
-    std::vector<Token> integer_tokens;          // parallel to integers – source location
-    std::vector<double> floats;
-    std::vector<Token> float_tokens;            // parallel to floats – source location
-    std::vector<std::string> identifiers;
-    std::vector<Token> identifier_tokens;       // parallel to identifiers – source location
-    std::vector<std::string> string_literals;
-    std::vector<Token> string_tokens;           // parallel to string_literals – source location
+    std::vector<Integer_literal> integers;
+    std::vector<Float_literal> floats;
+    std::vector<Identifier_node> identifiers;
+    std::vector<String_literal> string_literals;
     std::vector<Binary_expression> binary_expressions;
     std::vector<Unary_expression> unary_expressions;
     std::vector<Assignment_expression> assignment_expressions;

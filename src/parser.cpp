@@ -255,8 +255,7 @@ AST_index Parser::parse_identifier(){
     LOG("parse_identifier");
     ASSERT(m_current.type == Token_type::Identifier, "expected identifier but got: " << m_current.type);
     std::string name(m_current.view);
-    m_ast.identifiers.push_back(name);
-    m_ast.identifier_tokens.push_back(m_current);
+    m_ast.identifiers.push_back(Identifier_node(name, m_current));
     AST_index index(AST_index_type::Identifier, m_ast.identifiers.size() - 1);
     advance();
     return index;
@@ -298,8 +297,7 @@ AST_index Parser::parse_integer(){
     );
     i32 val;
     val = std::stoi(std::string(m_current.view));
-    m_ast.integers.push_back(val);
-    m_ast.integer_tokens.push_back(m_current);
+    m_ast.integers.push_back(Integer_literal(val, m_current));
 
     AST_index index(AST_index_type::Integer, m_ast.integers.size() - 1);
     advance();
@@ -315,8 +313,7 @@ AST_index Parser::parse_float(){
         "expected Token_type float as first in parse_float but got:" << m_current.type
     );
     double val = std::stod(std::string(m_current.view));
-    m_ast.floats.push_back(val);
-    m_ast.float_tokens.push_back(m_current);
+    m_ast.floats.push_back(Float_literal(val, m_current));
 
     AST_index index(AST_index_type::Float_literal, m_ast.floats.size() - 1);
     advance();
@@ -333,8 +330,7 @@ AST_index Parser::parse_string(){
     );
     // Strip the surrounding quotes from the view
     std::string val(m_current.view.substr(1, m_current.view.size() - 2));
-    m_ast.string_literals.push_back(val);
-    m_ast.string_tokens.push_back(m_current);
+    m_ast.string_literals.push_back(String_literal(val, m_current));
 
     AST_index index(AST_index_type::String_literal, m_ast.string_literals.size() - 1);
     advance();
@@ -429,8 +425,7 @@ AST_index Parser::parse_if_statement(){
 /// @param name  the identifier name string
 /// @return AST index pointing to the new identifier
 AST_index Parser::synth_identifier(const std::string& name){
-    m_ast.identifiers.push_back(name);
-    m_ast.identifier_tokens.push_back(m_current); // use current token for location
+    m_ast.identifiers.push_back(Identifier_node(name, m_current));
     return AST_index(AST_index_type::Identifier, m_ast.identifiers.size() - 1);
 }
 
@@ -438,8 +433,7 @@ AST_index Parser::synth_identifier(const std::string& name){
 /// @param value  the integer value
 /// @return AST index pointing to the new integer
 AST_index Parser::synth_integer(i64 value){
-    m_ast.integers.push_back(value);
-    m_ast.integer_tokens.push_back(m_current);
+    m_ast.integers.push_back(Integer_literal(value, m_current));
     return AST_index(AST_index_type::Integer, m_ast.integers.size() - 1);
 }
 

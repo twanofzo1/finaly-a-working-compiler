@@ -9,11 +9,11 @@ fn main() : i32 {
     var vec_2 : vec2 
     vec_2.x = 3.0
     vec_2.y = 4.0
-    var output := add_vec2(vec1, vec_2);
+    var output := add_vec2(vec1, vec_2)
 
-    print("Result: ");
-    print(vec_2.y);
-    print(" ");
-    print(output.y);
-    return 0;
+    print("Result: ")
+    print(vec_2.y)
+    print(" ")
+    print(output.y)
+    return 0
 }

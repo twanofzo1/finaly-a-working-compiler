@@ -146,16 +146,16 @@ void Semantic_analyser::semantic_warning(const std::string& msg, Token token) {
 Token Semantic_analyser::get_token(const AST_index& node) {
     switch (node.type) {
         case AST_index_type::Identifier:
-            if (node.index < ast.identifier_tokens.size())
-                return ast.identifier_tokens[node.index];
+            if (node.index < ast.identifiers.size())
+                return ast.identifiers[node.index].token;
             break;
         case AST_index_type::Integer:
-            if (node.index < ast.integer_tokens.size())
-                return ast.integer_tokens[node.index];
+            if (node.index < ast.integers.size())
+                return ast.integers[node.index].token;
             break;
         case AST_index_type::Float_literal:
-            if (node.index < ast.float_tokens.size())
-                return ast.float_tokens[node.index];
+            if (node.index < ast.floats.size())
+                return ast.floats[node.index].token;
             break;
         case AST_index_type::Binary_expression: {
             const Binary_expression& b = ast.binary_expressions[node.index];
@@ -240,7 +240,7 @@ void Semantic_analyser::pass1_collect_functions() {
         // Collect struct declarations first so they can be used as types
         if (stmt.type == AST_index_type::Struct_declaration) {
             const Struct_declaration& sdecl = ast.struct_declarations[stmt.index];
-            const std::string& sname = ast.identifiers[sdecl.name.index];
+            const std::string& sname = ast.identifiers[sdecl.name.index].name;
             if (m_structs.count(sname)) continue; // already imported
             analyse_struct_decl(stmt.index);
             continue;
@@ -256,7 +256,7 @@ void Semantic_analyser::pass1_collect_functions() {
             */
 
             const Function_declaration& func = ast.function_declarations[stmt.index];
-            const std::string& name = ast.identifiers[func.identifier.index];
+            const std::string& name = ast.identifiers[func.identifier.index].name;
             Token tok = get_token(func.identifier);
 
             // Skip if already declared (e.g. from an import)
@@ -286,7 +286,7 @@ void Semantic_analyser::pass1_collect_functions() {
             */
 
             const Variable_declaration& decl = ast.variable_declarations[stmt.index];
-            const std::string& name = ast.identifiers[decl.name.index];
+            const std::string& name = ast.identifiers[decl.name.index].name;
             Token tok = get_token(decl.name);
 
             // Skip if already declared (e.g. from an import)
@@ -437,7 +437,7 @@ void Semantic_analyser::analyse_function(u32 func_index) {
 
     // Declare parameters as local variables
     for (u64 i = 0; i < func.names.size(); ++i) {
-        const std::string& param_name = ast.identifiers[func.names[i].index];
+        const std::string& param_name = ast.identifiers[func.names[i].index].name;
         Token tok = get_token(func.names[i]);
         Symbol param{};
         param.type     = Symbol_type::Variable;
@@ -456,7 +456,7 @@ void Semantic_analyser::analyse_function(u32 func_index) {
     if (infer_return) m_inferred_return_type = AST_index(); // reset capture
 
     // If this function came from an import, allow access to imported-private symbols
-    const std::string& func_name = ast.identifiers[func.identifier.index];
+    const std::string& func_name = ast.identifiers[func.identifier.index].name;
     if (m_imported_function_names.count(func_name)) {
         m_analysing_imported_code = true;
     }
@@ -494,7 +494,7 @@ void Semantic_analyser::analyse_function(u32 func_index) {
 /// @brief analyses a variable declaration: type-checks initialiser, infers type if needed
 void Semantic_analyser::analyse_variable_decl(u32 var_index) {
     const Variable_declaration& decl = ast.variable_declarations[var_index];
-    const std::string& name = ast.identifiers[decl.name.index];
+    const std::string& name = ast.identifiers[decl.name.index].name;
     Token tok = get_token(decl.name);
 
     AST_index resolved_type = decl.datatype; // explicit type if any
@@ -659,7 +659,7 @@ AST_index Semantic_analyser::analyse_expression(const AST_index& node) {
         }
 
         case AST_index_type::Identifier: {
-            const std::string& name = ast.identifiers[node.index];
+            const std::string& name = ast.identifiers[node.index].name;
             Token tok = get_token(node);
             Symbol* sym = lookup(name);
             if (!sym) {
@@ -786,7 +786,7 @@ AST_index Semantic_analyser::analyse_assignment(u32 assign_index) {
         return AST_index();
     }
 
-    const std::string& name = ast.identifiers[assign.target.index];
+    const std::string& name = ast.identifiers[assign.target.index].name;
     Token tok = get_token(assign.target);
     Symbol* sym = lookup(name);
     if (!sym) {
@@ -833,7 +833,7 @@ AST_index Semantic_analyser::analyse_call(u32 call_index) {
         return AST_index();
     }
 
-    const std::string& name = ast.identifiers[call.callee.index];
+    const std::string& name = ast.identifiers[call.callee.index].name;
     Token tok = get_token(call.callee);
     Symbol* sym = lookup(name);
     if (!sym) {
@@ -883,7 +883,7 @@ AST_index Semantic_analyser::analyse_call(u32 call_index) {
 /// @brief analyses a struct declaration: registers the struct type with its fields
 void Semantic_analyser::analyse_struct_decl(u32 struct_index) {
     const Struct_declaration& decl = ast.struct_declarations[struct_index];
-    const std::string& name = ast.identifiers[decl.name.index];
+    const std::string& name = ast.identifiers[decl.name.index].name;
 
     if (m_structs.count(name)) {
         Token tok = get_token(decl.name);
@@ -894,7 +894,7 @@ void Semantic_analyser::analyse_struct_decl(u32 struct_index) {
     StructInfo info;
     info.name = name;
     for (u64 i = 0; i < decl.field_names.size(); ++i) {
-        info.field_names.push_back(ast.identifiers[decl.field_names[i].index]);
+        info.field_names.push_back(ast.identifiers[decl.field_names[i].index].name);
         info.field_types.push_back(decl.field_types[i]);
     }
     m_structs[name] = info;
@@ -929,7 +929,7 @@ AST_index Semantic_analyser::analyse_member_access(u32 ma_index) {
         return AST_index();
     }
 
-    const std::string& member_name = ast.identifiers[ma.member.index];
+    const std::string& member_name = ast.identifiers[ma.member.index].name;
     const StructInfo& info = it->second;
 
     for (u64 i = 0; i < info.field_names.size(); ++i) {
@@ -1000,9 +1000,8 @@ void Semantic_analyser::process_import(u32 import_index) {
             // Copy the struct into the main AST
             AST_index new_name;
             {
-                const std::string& sname = imported_ast.identifiers[sdecl.name.index];
-                ast.identifiers.push_back(sname);
-                ast.identifier_tokens.push_back(Token());
+                const std::string& sname = imported_ast.identifiers[sdecl.name.index].name;
+                ast.identifiers.push_back(Identifier_node(sname, Token()));
                 new_name = AST_index(AST_index_type::Identifier, ast.identifiers.size() - 1);
             }
 
@@ -1015,9 +1014,8 @@ void Semantic_analyser::process_import(u32 import_index) {
                 new_field_types.push_back(AST_index(AST_index_type::Datatype, ast.datatypes.size() - 1));
 
                 // Copy field name
-                const std::string& fname = imported_ast.identifiers[sdecl.field_names[i].index];
-                ast.identifiers.push_back(fname);
-                ast.identifier_tokens.push_back(Token());
+                const std::string& fname = imported_ast.identifiers[sdecl.field_names[i].index].name;
+                ast.identifiers.push_back(Identifier_node(fname, Token()));
                 new_field_names.push_back(AST_index(AST_index_type::Identifier, ast.identifiers.size() - 1));
             }
 
@@ -1045,9 +1043,8 @@ void Semantic_analyser::process_import(u32 import_index) {
             // Strategy: copy all referenced data from imported_ast into ast, remapping indices
 
             // Step 1: copy the function name
-            const std::string& fname = imported_ast.identifiers[func.identifier.index];
-            ast.identifiers.push_back(fname);
-            ast.identifier_tokens.push_back(Token());
+            const std::string& fname = imported_ast.identifiers[func.identifier.index].name;
+            ast.identifiers.push_back(Identifier_node(fname, Token()));
             AST_index new_name = AST_index(AST_index_type::Identifier, ast.identifiers.size() - 1);
 
             // Step 2: copy parameter types and names
@@ -1059,9 +1056,8 @@ void Semantic_analyser::process_import(u32 import_index) {
                 new_param_types.push_back(AST_index(AST_index_type::Datatype, ast.datatypes.size() - 1));
             }
             for (u64 i = 0; i < func.names.size(); ++i) {
-                const std::string& pname = imported_ast.identifiers[func.names[i].index];
-                ast.identifiers.push_back(pname);
-                ast.identifier_tokens.push_back(Token());
+                const std::string& pname = imported_ast.identifiers[func.names[i].index].name;
+                ast.identifiers.push_back(Identifier_node(pname, Token()));
                 new_param_names.push_back(AST_index(AST_index_type::Identifier, ast.identifiers.size() - 1));
             }
 
@@ -1088,22 +1084,18 @@ void Semantic_analyser::process_import(u32 import_index) {
 
                         case AST_index_type::Integer: {
                             dst.integers.push_back(src.integers[idx.index]);
-                            dst.integer_tokens.push_back(Token());
                             return AST_index(AST_index_type::Integer, dst.integers.size() - 1);
                         }
                         case AST_index_type::Float_literal: {
                             dst.floats.push_back(src.floats[idx.index]);
-                            dst.float_tokens.push_back(Token());
                             return AST_index(AST_index_type::Float_literal, dst.floats.size() - 1);
                         }
                         case AST_index_type::String_literal: {
                             dst.string_literals.push_back(src.string_literals[idx.index]);
-                            dst.string_tokens.push_back(Token());
                             return AST_index(AST_index_type::String_literal, dst.string_literals.size() - 1);
                         }
                         case AST_index_type::Identifier: {
                             dst.identifiers.push_back(src.identifiers[idx.index]);
-                            dst.identifier_tokens.push_back(Token());
                             return AST_index(AST_index_type::Identifier, dst.identifiers.size() - 1);
                         }
                         case AST_index_type::Datatype: {
@@ -1251,22 +1243,18 @@ void Semantic_analyser::process_import(u32 import_index) {
                         case AST_index_type::Invalid: return AST_index();
                         case AST_index_type::Integer: {
                             dst.integers.push_back(src.integers[idx.index]);
-                            dst.integer_tokens.push_back(Token());
                             return AST_index(AST_index_type::Integer, dst.integers.size() - 1);
                         }
                         case AST_index_type::Float_literal: {
                             dst.floats.push_back(src.floats[idx.index]);
-                            dst.float_tokens.push_back(Token());
                             return AST_index(AST_index_type::Float_literal, dst.floats.size() - 1);
                         }
                         case AST_index_type::String_literal: {
                             dst.string_literals.push_back(src.string_literals[idx.index]);
-                            dst.string_tokens.push_back(Token());
                             return AST_index(AST_index_type::String_literal, dst.string_literals.size() - 1);
                         }
                         case AST_index_type::Identifier: {
                             dst.identifiers.push_back(src.identifiers[idx.index]);
-                            dst.identifier_tokens.push_back(Token());
                             return AST_index(AST_index_type::Identifier, dst.identifiers.size() - 1);
                         }
                         case AST_index_type::Datatype: {
@@ -1308,9 +1296,8 @@ void Semantic_analyser::process_import(u32 import_index) {
 
             ASTCopier copier(imported_ast, ast);
 
-            const std::string& vname = imported_ast.identifiers[vdecl.name.index];
-            ast.identifiers.push_back(vname);
-            ast.identifier_tokens.push_back(Token());
+            const std::string& vname = imported_ast.identifiers[vdecl.name.index].name;
+            ast.identifiers.push_back(Identifier_node(vname, Token()));
             AST_index new_name = AST_index(AST_index_type::Identifier, ast.identifiers.size() - 1);
 
             AST_index new_datatype = copier.copy(vdecl.datatype);

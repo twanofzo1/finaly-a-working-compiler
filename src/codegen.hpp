@@ -34,28 +34,23 @@ struct String_pool_entry {
 class Codegen {
 public:
     Codegen(const IR_Program& program);
-
-    // Generate assembly and return it as a string
     std::string generate();
-
-    // Write the assembly to a file
     void write(const std::string& path);
 
 private:
     const IR_Program& m_program;
     std::ostringstream m_out;
 
-    // Per-function state
     std::unordered_map<IR_Reg, i32> m_stack_offsets;  // vreg → stack offset from %rbp
     std::unordered_map<IR_Reg, IR_Type> m_reg_types;  // vreg → type (for float dispatch)
     i32 m_stack_size;       // total stack bytes allocated (positive, rounded to 16)
     i32 m_next_offset;      // next available stack slot (negative offset from %rbp)
 
-    // Float constant pool (global, shared across functions)
+
     std::vector<Float_pool_entry> m_float_pool;
     u32 m_float_label_counter;
 
-    // String constant pool (global, shared across functions)
+
     std::vector<String_pool_entry> m_string_pool;
     u32 m_string_label_counter;
 

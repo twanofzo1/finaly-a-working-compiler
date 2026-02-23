@@ -428,16 +428,16 @@ void AST_index::print(const AST& ast, u32 indent) const {
     std::string pad(indent, ' ');
     switch (type) {
         case AST_index_type::Integer:
-            std::cout << pad << ast.integers[index];
+            std::cout << pad << ast.integers[index].value;
             break;
         case AST_index_type::Float_literal:
-            std::cout << pad << ast.floats[index];
+            std::cout << pad << ast.floats[index].value;
             break;
         case AST_index_type::String_literal:
-            std::cout << pad << '"' << ast.string_literals[index] << '"';
+            std::cout << pad << '"' << ast.string_literals[index].value << '"';
             break;
         case AST_index_type::Identifier:
-            std::cout << pad << ast.identifiers[index];
+            std::cout << pad << ast.identifiers[index].name;
             break;
         case AST_index_type::Binary_expression:
             ast.binary_expressions[index].print(ast, indent);

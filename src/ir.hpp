@@ -192,7 +192,7 @@ public:
 
 private:
 
-IR_Reg new_reg();
+    IR_Reg new_reg();
     u32    new_label();
     void   emit(const IR_Instruction& inst);
 
